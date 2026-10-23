@@ -137,7 +137,7 @@ namespace GJ.Game
             return -1;
         }
 
-        void Move(int dir)
+        public void Move(int dir)
         {
             _index = (_index + dir + _items.Count) % _items.Count;
             Play(_move);

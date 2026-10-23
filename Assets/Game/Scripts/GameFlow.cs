@@ -47,6 +47,13 @@ namespace GJ.Game
         static readonly int CrtId = Shader.PropertyToID("_PsxCrt");
         static readonly int TvOffId = Shader.PropertyToID("_PsxTvOff");
         static readonly int StaticId = Shader.PropertyToID("_PsxStatic");
+        static readonly int KnobsId = Shader.PropertyToID("_PsxKnobs");
+
+        // The TV's own controls, worked with the mouse on the menu screens (see PSX/Screen for where they sit).
+        const float VolumeMax = 2.36f;   // the volume knob sweeps this far (radians) either side of straight up
+        float _channelAngle = 1.9f, _channelTurn, _volumeAngle = float.NaN;
+        int _dragKnob, _heldButton;
+        bool _tvOn = true;
         float _static;
         Vector3 _headRest;
         Quaternion _headRestRot;
@@ -422,13 +429,130 @@ namespace GJ.Game
             if (_state == State.Intro) _introArt?.Tick(Time.unscaledDeltaTime);
             UpdateMusic();
 
-            _activeMenu?.Tick();
+            UpdateTvControls();
+            if (_tvOn) _activeMenu?.Tick();
             if (_state == State.Playing) GameSession.Time += Time.deltaTime;
 
-            if (!Escape()) return;
+            if (!Escape() || !_tvOn) return;
             if (_activeMenu == _settingsMenu) { CloseSettings(); return; }
             if (_state == State.Playing && !director.Busy) Pause();
             else if (_state == State.Paused) Resume();
+        }
+
+        // ---------------------------------------------------------------- the set's knobs and buttons
+
+        static float VolumeAngle() => Mathf.PI * 0.5f + VolumeMax - GameSettings.Volume / 10f * (VolumeMax + VolumeMax);
+
+        // Which control is under a point in the set's control-strip coordinates: 1 channel, 2 volume, 3-5 buttons.
+        static int ControlAt(Vector2 v)
+        {
+            if ((v - new Vector2(0.2f, -0.42f)).magnitude < 0.046f) return 1;
+            if ((v - new Vector2(0.33f, -0.42f)).magnitude < 0.046f) return 2;
+            for (int b = 0; b < 3; b++)
+            {
+                var d = v - new Vector2(0.55f + b * 0.055f, -0.42f);
+                if (Mathf.Abs(d.x) < 0.024f && Mathf.Abs(d.y) < 0.017f) return 3 + b;
+            }
+            return 0;
+        }
+
+        void UpdateTvControls()
+        {
+            int hover = 0;
+            var mouse = Mouse.current;
+            // Follow the volume setting when it is changed from the settings menu instead.
+            if (_dragKnob != 2 && (float.IsNaN(_volumeAngle) || Mathf.Abs(_volumeAngle - VolumeAngle()) > VolumeMax * 0.1f + 0.01f))
+                _volumeAngle = VolumeAngle();
+            bool menus = _state == State.Title || _state == State.Paused || _state == State.End;
+            if (mouse != null && menus && _crt > 0.97f && Screen.height > 0)
+            {
+                Vector2 pos = mouse.position.ReadValue();
+                // Window point in the strip's layout units (window heights, laid out for 16:9).
+                var v = new Vector2((pos.x / Screen.width - 0.5f) * 1.7778f, pos.y / Screen.height - 0.5f);
+                hover = ControlAt(v);
+                float scroll = mouse.scroll.ReadValue().y;
+
+                if (mouse.leftButton.wasPressedThisFrame && hover > 0)
+                {
+                    if (hover <= 2) _dragKnob = hover;
+                    else { _heldButton = hover; PressButton(hover - 3); }
+                }
+                if (!mouse.leftButton.isPressed)
+                {
+                    if (_dragKnob == 2) GameSettings.Save();
+                    _dragKnob = 0;
+                    _heldButton = 0;
+                }
+
+                // Turning: drag sideways (right = clockwise) or roll the wheel over the knob.
+                float turn = 0f;
+                int knob = _dragKnob;
+                if (knob > 0) turn = -mouse.delta.ReadValue().x * 0.012f;
+                else if (hover > 0 && hover <= 2 && Mathf.Abs(scroll) > 0.01f) { knob = hover; turn = -Mathf.Sign(scroll) * 0.25f; }
+                if (knob == 1 && turn != 0f) TurnChannel(turn);
+                if (knob == 2 && turn != 0f) TurnVolume(turn, _dragKnob == 0);
+                if (_dragKnob > 0) hover = _dragKnob;
+            }
+            Shader.SetGlobalVector(KnobsId, new Vector4(_channelAngle, _volumeAngle, hover, _heldButton));
+        }
+
+        // The channel knob clicks round in steps; each click moves the menu one item, with a flick of snow.
+        void TurnChannel(float turn)
+        {
+            if (!_tvOn) return;
+            _channelAngle += turn;
+            _channelTurn += turn;
+            while (Mathf.Abs(_channelTurn) >= 0.5f)
+            {
+                int dir = _channelTurn < 0f ? 1 : -1;
+                _channelTurn += dir * 0.5f;
+                _activeMenu?.Move(dir);
+                Snow(0.35f);
+            }
+        }
+
+        // The volume knob turns smoothly between its stops; the game volume follows it in tenths.
+        void TurnVolume(float turn, bool save)
+        {
+            _volumeAngle = Mathf.Clamp(_volumeAngle + turn, Mathf.PI * 0.5f - VolumeMax, Mathf.PI * 0.5f + VolumeMax);
+            int volume = Mathf.RoundToInt((Mathf.PI * 0.5f + VolumeMax - _volumeAngle) / (VolumeMax * 2f) * 10f);
+            if (volume == GameSettings.Volume) return;
+            GameSettings.Volume = volume;
+            GameSettings.Apply();
+            PlayUi(moveClip, 0.6f);
+            if (save) GameSettings.Save();
+            _activeMenu?.Refresh();
+        }
+
+        // Buttons: picture mode, a burst of snow, and power.
+        void PressButton(int b)
+        {
+            PlayUi(pickClip, 0.5f);
+            if (b == 2) { StartCoroutine(TogglePower()); return; }
+            if (!_tvOn) return;
+            if (b == 0)
+            {
+                GameSettings.Pixels = (GameSettings.Pixels + 1) % GameSettings.PixelRows.Length;
+                GameSettings.Apply();
+                GameSettings.Save();
+                _activeMenu?.Refresh();
+                Snow(0.6f);
+            }
+            else Snow(1f);
+        }
+
+        IEnumerator TogglePower()
+        {
+            if (_tvOn)
+            {
+                _tvOn = false;
+                yield return PowerOff();
+            }
+            else
+            {
+                yield return PowerOn();
+                _tvOn = true;
+            }
         }
 
         AudioSource MusicSource(AudioClip clip, bool ignorePause)

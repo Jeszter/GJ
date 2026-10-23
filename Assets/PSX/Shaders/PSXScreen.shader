@@ -35,6 +35,7 @@ Shader "PSX/Screen"
             float _PsxTvOff;    // 0 = tube on, 1 = switched off (the picture squeezes to a line, then a dot)
             float _PsxStatic;   // 0..1 snow over the picture
             float4 _PsxWindow;  // window size in pixels
+            float4 _PsxKnobs;   // channel knob angle, volume knob angle, control under the mouse (1-2 knobs, 3-5 buttons), button held down
 
             // Where the glass sits in the window and how much it bulges. Mirrored in PSXScreen.WindowToFrame.
             static const float2 TvCenter = float2(0.5, 0.548);
@@ -68,7 +69,7 @@ Shader "PSX/Screen"
             }
 
             // Knob seen from the front: ribbed rim, domed cap, a white pointer, a shadow below it.
-            float3 Knob(float3 col, float2 v, float2 c, float r, float angle)
+            float3 Knob(float3 col, float2 v, float2 c, float r, float angle, float hover)
             {
                 float2 d = v - c;
                 float len = length(d);
@@ -82,7 +83,7 @@ Shader "PSX/Screen"
                 float2 dir = float2(cos(angle), sin(angle));
                 float along = dot(d, dir), across = abs(d.x * dir.y - d.y * dir.x);
                 if (along > r * 0.2 && along < r * 0.7 && across < r * 0.09) k = float3(0.7, 0.68, 0.62);
-                return k;
+                return k * (1.0 + hover * 0.6);
             }
 
             // The TV cabinet round the glass. w: window point in window heights from the centre. sd: distance from
@@ -128,15 +129,18 @@ Shader "PSX/Screen"
                     if (abs(v.y + 0.42) < 0.004 && frac((v.x + 0.02) / 0.035) < 0.6) col *= 0.45;
                 }
                 // Channel and volume knobs.
-                col = Knob(col, v, float2(0.2, -0.42), 0.04, 1.9);
-                col = Knob(col, v, float2(0.33, -0.42), 0.04, 0.6);
+                col = Knob(col, v, float2(0.2, -0.42), 0.04, _PsxKnobs.x, step(abs(_PsxKnobs.z - 1.0), 0.1));
+                col = Knob(col, v, float2(0.33, -0.42), 0.04, _PsxKnobs.y, step(abs(_PsxKnobs.z - 2.0), 0.1));
                 // Push buttons.
                 for (int b = 0; b < 3; b++)
                 {
                     float2 bc = float2(0.55 + b * 0.055, -0.42);
                     float bd = RoundBox(v - bc, float2(0.02, 0.013), 0.004);
-                    if (bd < 0.0) col = float3(0.15, 0.14, 0.13) * (1.0 + saturate((v.y - bc.y) / 0.013) * 0.4);
-                    else if (bd < 0.006 && v.y < bc.y) col *= 0.6;
+                    float held = step(abs(_PsxKnobs.w - (b + 3.0)), 0.1);
+                    float lit = step(abs(_PsxKnobs.z - (b + 3.0)), 0.1);
+                    // Held down it sinks into the panel: darker, no highlight on its top edge.
+                    if (bd < 0.0) col = float3(0.15, 0.14, 0.13) * (1.0 + saturate((v.y - bc.y) / 0.013) * 0.4 * (1.0 - held)) * (1.0 - held * 0.4) * (1.0 + lit * 0.5);
+                    else if (bd < 0.006 && v.y < bc.y) col *= 0.6 + held * 0.3;
                 }
                 // Power light: red while the set is on, a dull ember when off.
                 float led = length(v - float2(0.45, -0.42));
@@ -239,13 +243,17 @@ Shader "PSX/Screen"
                     float2 g = (p - float2(-0.5, 0.58)) * float2(0.9, 1.7);
                     c += crt * 0.05 * exp(-dot(g, g) * 3.0);
 
-                    // Rounded tube corners; past them, the set.
+                    // Rounded tube corners; past them, the set. The set is drawn on the game's own low-res pixel grid,
+                    // so it has the same chunky PS1 look as everything else.
+                    float2 uvq = (floor(i.uv * _MainTex_TexelSize.zw) + 0.5) * _MainTex_TexelSize.xy;
+                    float2 pq = (uvq - center) / halfSize;
+                    pq += pq * (pq.yx * pq.yx) * TvBulge * crt;
                     float2 e = float2(glassAspect, 1.0);
-                    float sd = RoundBox(p * e, e, 0.16 * crt + 1e-4);
-                    float inside = 1.0 - smoothstep(-0.006, 0.006, sd);
+                    float sd = RoundBox(pq * e, e, 0.16 * crt + 1e-4);
+                    float inside = sd < 0.0 ? 1.0 : 0.0;
                     inside = lerp(1.0, inside, saturate(crt * 4.0));
-                    float2 w = float2((i.uv.x - 0.5) * aspectW, i.uv.y - 0.5);
-                    float3 cab = Cabinet(i.uv, w, aspectW, sd, p, 1.0 - off);
+                    float2 w = float2((uvq.x - 0.5) * aspectW, uvq.y - 0.5);
+                    float3 cab = Cabinet(uvq, w, aspectW, sd, pq, 1.0 - off);
                     // The glass sits a little in shadow under the top of the bezel.
                     c *= 1.0 - 0.35 * crt * smoothstep(-0.12, 0.0, sd) * saturate(p.y + 0.2);
                     c = lerp(cab, c, inside);
