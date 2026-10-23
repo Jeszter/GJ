@@ -64,9 +64,10 @@ namespace GJ.PSX.EditorTools
         }
 
         // Places a Kenney model (file relative to KenneyRoot, without .fbx) standing on pos, turned by yaw, leaning by
-        // tilt (degrees about its own X), scaled so it is "height" metres tall.
+        // tilt (degrees about its own X), scaled so it is "height" metres tall (or stretched to fit, metres along its
+        // own X, Y, Z, when fit is given).
         static GameObject Model(string file, Vector3 pos, float yaw, float height, Transform parent, float tilt = 0f,
-                                Dictionary<string, string> overrides = null)
+                                Dictionary<string, string> overrides = null, Vector3? fit = null)
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{KenneyRoot}/{file}.fbx");
             if (prefab == null) { Debug.LogWarning("Missing model " + file); return null; }
@@ -117,7 +118,9 @@ namespace GJ.PSX.EditorTools
             Object.DestroyImmediate(inst);
             if (first) return null;
 
-            float scale = height / Mathf.Max(0.001f, bounds.size.y);
+            Vector3 size = Vector3.Max(bounds.size, Vector3.one * 0.001f);
+            Vector3 scale = fit.HasValue ? new Vector3(fit.Value.x / size.x, fit.Value.y / size.y, fit.Value.z / size.z)
+                                         : Vector3.one * (height / size.y);
             Vector3 origin = new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
             var v = new List<Vector3>();
             var nrm = new List<Vector3>();
@@ -132,7 +135,7 @@ namespace GJ.PSX.EditorTools
                 bool palette = g.Key == "KenneyPalette";
                 foreach (var (p0, n, uv0) in g.Value)
                 {
-                    Vector3 p = (p0 - origin) * scale;
+                    Vector3 p = Vector3.Scale(p0 - origin, scale);
                     tris.Add(v.Count);
                     v.Add(p);
                     nrm.Add(n);

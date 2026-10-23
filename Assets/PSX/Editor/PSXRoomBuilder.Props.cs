@@ -475,13 +475,13 @@ namespace GJ.PSX.EditorTools
             WallCard("Poster", "Poster", new Vector3(RoomMin.x + 0.005f, 1.6f, 5.95f), 90f, 0.4f, 0.4f, d);
             FirstAid(new Vector3(1.95f, 1.55f, RoomMax.z), 180f, d);
             Mop(new Vector3(-2.75f, 0f, 6.25f), -90f, d);
-            Bucket(new Vector3(-2.45f, 0f, 6.35f), 0f, d);
+            Model("Survival/bucket", new Vector3(-2.45f, 0f, 6.35f), 0f, 0.32f, d);
 
             // Floor: litter round the knocked-over chair and by the door, a bottle that rolled under the bench,
             // cans by the rubble, a wrench dropped by the crates.
             Litter(new Vector3(1.6f, 0f, 4.2f), 0.7f, 120, d);
             Litter(new Vector3(-0.3f, 0f, 6.9f), 0.9f, 121, d);
-            Bottle(new Vector3(2.2f, 0f, 3.6f), 60f, d, true);
+            Model("Survival/bottle", new Vector3(2.2f, 0.04f, 3.6f), 60f, 0.28f, d, 90f);
             TinCan(new Vector3(-2.0f, 0f, 0.45f), 20f, d, true);
             TinCan(new Vector3(-1.75f, 0f, 0.7f), 0f, d);
             Wrench(new Vector3(1.75f, 0f, 6.6f), 40f, d, 0.3f);
@@ -496,14 +496,14 @@ namespace GJ.PSX.EditorTools
 
             // The table: a radio, a plate and a mug, books; boots under the cot and a coat above it.
             var tableTop = new Vector3(2.75f, 0.785f, 4.95f);
-            Radio(tableTop + new Vector3(-0.22f, 0f, -0.32f), 160f, d);
+            Model("Furniture/radio", tableTop + new Vector3(-0.2f, 0f, -0.3f), 160f, 0.16f, d).name = "Radio";
             PlateAndSpoon(tableTop + new Vector3(0.12f, 0f, 0.05f), 0f, d);
             Mug(tableTop + new Vector3(0.3f, 0f, -0.08f), 40f, d);
-            Books(tableTop + new Vector3(-0.27f, 0f, 0.05f), 15f, d);
+            Model("Furniture/books", tableTop + new Vector3(-0.25f, 0f, 0.08f), 15f, 0.12f, d);
             Boots(new Vector3(2.55f, 0f, 1.35f), 170f, d);
             Coat(new Vector3(RoomMax.x, 1.75f, 3.1f), -90f, "Leather", d);
             WallCard("Photo", "Photo", new Vector3(RoomMax.x - 0.005f, 1.35f, 2.2f), -90f, 0.13f, 0.13f, d, -6f);
-            Bottle(new Vector3(2.2f, 0f, 2.9f), 20f, d, true);
+            Model("Survival/bottle-large", new Vector3(2.2f, 0.05f, 2.9f), 20f, 0.3f, d, 90f);
 
             // Back wall: breaker panel, a notice and a safety poster; tools and spare pipe by the pump.
             BreakerPanel(new Vector3(-1.45f, 1.55f, 0f), 0f, d, RoomMax.y);
@@ -516,7 +516,7 @@ namespace GJ.PSX.EditorTools
 
             // By the drain: a mop and pail; sandbags against the door wall; a clock over the crates.
             Mop(new Vector3(-3.22f, 0f, 3.55f), -90f, d);
-            Bucket(new Vector3(-2.95f, 0f, 3.75f), 0f, d);
+            Model("Survival/bucket", new Vector3(-2.95f, 0f, 3.75f), 30f, 0.32f, d);
             Sack(new Vector3(-2.65f, 0.11f, 7.15f), 5f, d);
             Sack(new Vector3(-2.75f, 0.11f, 6.75f), -10f, d);
             Sack(new Vector3(-2.68f, 0.35f, 6.95f), 2f, d, -3f);

@@ -1437,9 +1437,9 @@ namespace GJ.PSX.EditorTools
                 Cyl("Jar_" + i, "Glass", new Vector3(0.3f, 1.72f, -0.55f + i * 0.27f), 0.05f + Hash(i, 0, 30) * 0.02f, 0.12f + Hash(i, 1, 30) * 0.1f, 6, default, 1f, bench);
 
             // Crates near the door.
-            Block("Crate_Big", "Crate", new Vector3(2.3f, 0.4f, 6.25f), new Vector3(0.8f, 0.8f, 0.8f), new Vector3(0, 8, 0), 1f / 0.8f, props, true);
-            Block("Crate_Small", "Crate", new Vector3(2.25f, 1.05f, 6.2f), new Vector3(0.5f, 0.5f, 0.5f), new Vector3(0, -17, 0), 2f, props, true);
-            Block("Crate_Side", "Crate", new Vector3(2.4f, 0.3f, 7.3f), new Vector3(0.6f, 0.6f, 0.6f), new Vector3(0, 30, 0), 1f / 0.6f, props, true);
+            Model("Survival/box", new Vector3(2.3f, 0f, 6.25f), 8f, 0f, props, 0f, null, Vector3.one * 0.8f);
+            Model("Survival/box", new Vector3(2.25f, 0.8f, 6.2f), -17f, 0f, props, 0f, null, Vector3.one * 0.5f);
+            Model("Survival/box-large", new Vector3(2.4f, 0f, 7.3f), 30f, 0f, props, 0f, null, new Vector3(0.6f, 0.6f, 0.6f));
 
             // An open crate of the old charges you were sent down to clear: straw and red sticks.
             var charges = new GameObject("ChargeCrate").transform;
@@ -1566,13 +1566,8 @@ namespace GJ.PSX.EditorTools
             // A chair knocked over by the bench.
             var chair = new GameObject("Chair").transform;
             chair.SetParent(details, false);
-            chair.localPosition = new Vector3(1.5f, 0.2f, 4.4f);
-            chair.localRotation = Quaternion.Euler(0, 25, 80);
-            Block("Seat", "Wood", Vector3.zero, new Vector3(0.4f, 0.04f, 0.4f), default, 2f, chair);
-            Block("Back", "Wood", new Vector3(0, 0.22f, -0.19f), new Vector3(0.4f, 0.44f, 0.03f), default, 2f, chair);
-            foreach (var lx in new[] { -0.17f, 0.17f })
-                foreach (var lz in new[] { -0.17f, 0.17f })
-                    Block("Leg", "Wood", new Vector3(lx, -0.2f, lz), new Vector3(0.035f, 0.4f, 0.035f), default, 2f, chair);
+            chair.localPosition = new Vector3(1.5f, 0.02f, 4.4f);
+            Model("Furniture/chair", Vector3.zero, 25f, 0f, chair, -88f, null, new Vector3(0.42f, 0.9f, 0.42f));
 
             // Rubble where the ceiling has given way.
             foreach (var pile in new[] { new Vector3(-2.45f, 0f, 0.5f), new Vector3(1.15f, 0f, 7.6f) })

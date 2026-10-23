@@ -332,24 +332,13 @@ namespace GJ.PSX.EditorTools
             var cot = new GameObject("Cot").transform;
             cot.SetParent(props, false);
             cot.localPosition = new Vector3(2.9f, 0f, 2.6f);
-            foreach (var lx in new[] { -0.32f, 0.32f })
-                foreach (var lz in new[] { -0.92f, 0.92f })
-                    Block("Leg", "DarkMetal", new Vector3(lx, 0.19f, lz), new Vector3(0.04f, 0.38f, 0.04f), default, 4f, cot);
-            Block("Rail_L", "DarkMetal", new Vector3(-0.33f, 0.36f, 0), new Vector3(0.04f, 0.05f, 1.9f), default, 2f, cot);
-            Block("Rail_R", "DarkMetal", new Vector3(0.33f, 0.36f, 0), new Vector3(0.04f, 0.05f, 1.9f), default, 2f, cot);
-            Block("Mattress", "Mattress", new Vector3(0, 0.44f, 0), new Vector3(0.66f, 0.12f, 1.86f), default, 2f, cot);
-            Block("Blanket", "Blanket", new Vector3(0.02f, 0.52f, 0.35f), new Vector3(0.7f, 0.05f, 1.1f), new Vector3(0, 0, -3), 2f, cot);
-            Block("Blanket_Fold", "Blanket", new Vector3(-0.05f, 0.56f, -0.2f), new Vector3(0.6f, 0.06f, 0.18f), new Vector3(0, 8, 0), 2f, cot);
-            Block("Pillow", "Mattress", new Vector3(0, 0.54f, -0.75f), new Vector3(0.48f, 0.09f, 0.3f), new Vector3(0, 4, 0), 4f, cot);
+            Model("Furniture/bedSingle", Vector3.zero, 0f, 0f, cot, 0f, null, new Vector3(0.72f, 0.62f, 1.95f));
 
             // Table with a lantern, tins, a bottle and the diary page; a calendar on the wall above.
             var table = new GameObject("Table").transform;
             table.SetParent(props, false);
             table.localPosition = new Vector3(2.75f, 0f, 4.95f);
-            Block("Top", "Wood", new Vector3(0, 0.76f, 0), new Vector3(0.8f, 0.05f, 1.0f), default, 1f, table, true);
-            foreach (var lx in new[] { -0.35f, 0.35f })
-                foreach (var lz in new[] { -0.45f, 0.45f })
-                    Block("Leg", "Wood", new Vector3(lx, 0.37f, lz), new Vector3(0.05f, 0.74f, 0.05f), default, 2f, table);
+            Model("Furniture/table", Vector3.zero, 90f, 0f, table, 0f, null, new Vector3(1.0f, 0.785f, 0.8f));
             for (int i = 0; i < 3; i++)
                 Cyl("Tin", "Steel", new Vector3(-0.2f + i * 0.11f, 0.785f, 0.32f - i * 0.04f), 0.04f, 0.08f + i * 0.01f, 7, default, 4f, table);
             Cyl("Bottle", "Glass", new Vector3(0.22f, 0.785f, 0.35f), 0.035f, 0.2f, 6, default, 4f, table);
@@ -374,13 +363,8 @@ namespace GJ.PSX.EditorTools
 
             var chair = new GameObject("Chair").transform;
             chair.SetParent(props, false);
-            chair.localPosition = new Vector3(2.15f, 0.42f, 5.1f);
-            chair.localRotation = Quaternion.Euler(0, 75, 0);
-            Block("Seat", "Wood", Vector3.zero, new Vector3(0.4f, 0.04f, 0.4f), default, 2f, chair);
-            Block("Back", "Wood", new Vector3(0, 0.25f, -0.19f), new Vector3(0.4f, 0.46f, 0.03f), default, 2f, chair);
-            foreach (var lx in new[] { -0.17f, 0.17f })
-                foreach (var lz in new[] { -0.17f, 0.17f })
-                    Block("Leg", "Wood", new Vector3(lx, -0.21f, lz), new Vector3(0.035f, 0.42f, 0.035f), default, 2f, chair);
+            chair.localPosition = new Vector3(2.15f, 0f, 5.1f);
+            Model("Furniture/chair", Vector3.zero, 75f, 0f, chair, 0f, null, new Vector3(0.42f, 0.92f, 0.42f));
 
             // The old pump in the back corner: motor, flywheel, pipes into the floor and up the wall.
             var pump = new GameObject("Pump").transform;
@@ -396,8 +380,8 @@ namespace GJ.PSX.EditorTools
             PipeRun("PumpIntake", "Rust", new[] { new Vector3(2.4f, 0.4f, 0.27f), new Vector3(2.4f, 0.4f, 0.05f), new Vector3(2.4f, -0.05f, 0.05f) }, 0.055f, props, false);
 
             // Crates by the door and shelving on the left wall.
-            Block("Crate_A", "Crate", new Vector3(2.75f, 0.35f, 6.95f), new Vector3(0.7f, 0.7f, 0.7f), new Vector3(0, -6, 0), 1f / 0.7f, props, true);
-            Block("Crate_B", "Crate", new Vector3(2.05f, 0.25f, 7.05f), new Vector3(0.5f, 0.5f, 0.5f), new Vector3(0, 22, 0), 2f, props, true);
+            Model("Survival/box", new Vector3(2.75f, 0f, 6.95f), -6f, 0f, props, 0f, null, Vector3.one * 0.7f);
+            Model("Survival/box-open", new Vector3(2.05f, 0f, 7.05f), 22f, 0f, props, 0f, null, new Vector3(0.5f, 0.55f, 0.5f));
             var shelf = new GameObject("Shelving").transform;
             shelf.SetParent(props, false);
             shelf.localPosition = new Vector3(-3.2f, 0f, 5.55f);
