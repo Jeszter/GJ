@@ -27,21 +27,15 @@ namespace GJ.PSX.EditorTools
                 bool cross = (x >= 6 && x <= 9 && y >= 3 && y <= 12) || (y >= 6 && y <= 9 && x >= 3 && x <= 12);
                 return cross ? new Color(0.7f, 0.08f, 0.06f) : Shade(new Color(0.82f, 0.8f, 0.74f), (Hash(x, y, 103) - 0.5f) * 0.06f);
             }));
-            // Clock face: twelve ticks, hands stopped at twenty to four.
+            // Clock face: twelve hour ticks; the hands are separate meshes.
             Lit("ClockFace", lit, MakeTexture("clock_face", 32, (x, y) =>
             {
                 var d = new Vector2(x - 15.5f, y - 15.5f);
                 float r = d.magnitude;
-                if (r > 15.5f) return new Color(0.1f, 0.1f, 0.1f);
+                if (r > 14.2f) return new Color(0.12f, 0.11f, 0.1f);
                 float ang = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
-                if (r > 12f && r < 14.5f && Mathf.Repeat(ang + 3f, 30f) < 6f) return new Color(0.1f, 0.1f, 0.1f);
-                bool HandAt(float deg, float len, float w)
-                {
-                    var dir = new Vector2(Mathf.Cos(deg * Mathf.Deg2Rad), Mathf.Sin(deg * Mathf.Deg2Rad));
-                    float along = Vector2.Dot(d, dir), across = Mathf.Abs(d.x * dir.y - d.y * dir.x);
-                    return along > -1f && along < len && across < w;
-                }
-                if (HandAt(-30f - 120f + 90f - 90f, 8f, 1.2f) || HandAt(90f - 240f, 12f, 0.8f)) return new Color(0.08f, 0.08f, 0.08f);
+                bool quarter = Mathf.Repeat(ang + 6f, 90f) < 12f;
+                if (r > (quarter ? 9.5f : 11f) && r < 13.5f && Mathf.Repeat(ang + 4f, 30f) < (quarter ? 8f : 6f)) return new Color(0.06f, 0.06f, 0.06f);
                 return Shade(new Color(0.85f, 0.82f, 0.72f), (Hash(x, y, 104) - 0.5f) * 0.05f - r * 0.004f);
             }));
             // A notice: red heading bar, rows of type, a signature.
@@ -229,30 +223,74 @@ namespace GJ.PSX.EditorTools
                 Cyl("Button", "Rubber", new Vector3(0, -0.2f - i * 0.15f, 0.125f), 0.01f, 0.006f, 5, new Vector3(-90, 0, 0), 6f, g);
         }
 
-        // Wall clock, stopped. Faces +Z of the group.
+        // Wall clock with real hands (WallClock turns them). Faces +Z of the group.
         static void Clock(Vector3 pos, float yaw, Transform parent)
         {
             var g = Group("Clock", pos, yaw, parent);
             Cyl("Case", "DarkMetal", Vector3.zero, 0.17f, 0.05f, 12, new Vector3(90, 0, 0), 4f, g);
+            Cyl("Bezel", "Chrome", new Vector3(0, 0, 0.045f), 0.168f, 0.012f, 12, new Vector3(90, 0, 0), 4f, g);
             Cyl("Face", "ClockFace", new Vector3(0, 0, 0.05f), 0.15f, 0.003f, 12, new Vector3(90, 0, 0), 1f / 0.3f, g);
+            Transform Hand(string name, float length, float width, float z, string mat)
+            {
+                var pivot = new GameObject(name).transform;
+                pivot.SetParent(g, false);
+                pivot.localPosition = new Vector3(0, 0, z);
+                Block("Blade", mat, new Vector3(0, length * 0.5f - 0.015f, 0), new Vector3(width, length, 0.003f), default, 8f, pivot);
+                return pivot;
+            }
+            var clock = g.gameObject.AddComponent<Game.WallClock>();
+            clock.hour = Hand("Hour", 0.08f, 0.012f, 0.056f, "Rubber");
+            clock.minute = Hand("Minute", 0.12f, 0.008f, 0.059f, "Rubber");
+            clock.second = Hand("Second", 0.13f, 0.003f, 0.062f, "RedPaint");
+            Cyl("Cap", "Rubber", new Vector3(0, 0, 0.063f), 0.008f, 0.004f, 6, new Vector3(90, 0, 0), 8f, g);
+            var tick = g.gameObject.AddComponent<AudioSource>();
+            tick.spatialBlend = 1f;
+            tick.rolloffMode = AudioRolloffMode.Linear;
+            tick.minDistance = 0.3f;
+            tick.maxDistance = 4f;
+            tick.playOnAwake = false;
+            clock.tickClip = PSXSoundGenerator.Load("clock_tick");
         }
 
-        // Breaker panel: a box with an open door, a row of switches (one tripped), a conduit up to the ceiling.
+        // Breaker panel: a steel box with a lipped frame, two DIN rails of black breakers with white levers (one
+        // tripped, its lever red and down), a label strip, the door standing open on its hinge, a conduit up top.
         static void BreakerPanel(Vector3 pos, float yaw, Transform parent, float ceiling)
         {
             var g = Group("BreakerPanel", pos, yaw, parent);
-            Block("Box", "PaintGreen", new Vector3(0, 0, 0.06f), new Vector3(0.42f, 0.55f, 0.12f), default, 3f, g);
-            Block("Inside", "DarkMetal", new Vector3(0, 0, 0.121f), new Vector3(0.36f, 0.48f, 0.004f), default, 3f, g);
-            Block("Door", "PaintGreen", new Vector3(-0.38f, 0, 0.2f), new Vector3(0.4f, 0.54f, 0.02f), new Vector3(0, -55, 0), 3f, g);
-            for (int i = 0; i < 6; i++)
+            const float w = 0.42f, h = 0.56f, d = 0.12f;
+            Block("Back", "PaintGreen", new Vector3(0, 0, 0.005f), new Vector3(w, h, 0.01f), default, 3f, g);
+            Block("Side_L", "PaintGreen", new Vector3(-w * 0.5f + 0.01f, 0, d * 0.5f), new Vector3(0.02f, h, d), default, 3f, g);
+            Block("Side_R", "PaintGreen", new Vector3(w * 0.5f - 0.01f, 0, d * 0.5f), new Vector3(0.02f, h, d), default, 3f, g);
+            Block("Top", "PaintGreen", new Vector3(0, h * 0.5f - 0.01f, d * 0.5f), new Vector3(w, 0.02f, d), default, 3f, g);
+            Block("Bottom", "PaintGreen", new Vector3(0, -h * 0.5f + 0.01f, d * 0.5f), new Vector3(w, 0.02f, d), default, 3f, g);
+            Block("Mount", "DarkMetal", new Vector3(0, 0, 0.012f), new Vector3(w - 0.05f, h - 0.05f, 0.004f), default, 3f, g);
+            for (int row = 0; row < 2; row++)
             {
-                float x = -0.13f + (i % 3) * 0.13f, y = 0.1f - (i / 3) * 0.2f;
-                Block("Breaker", "Enamel", new Vector3(x, y, 0.13f), new Vector3(0.07f, 0.1f, 0.02f), default, 8f, g);
-                Block("Toggle", i == 4 ? "RedPaint" : "Rubber", new Vector3(x, y + (i == 4 ? -0.02f : 0.02f), 0.15f), new Vector3(0.02f, 0.03f, 0.03f), default, 8f, g);
+                float y = 0.1f - row * 0.2f;
+                Block("Rail", "Steel", new Vector3(0, y, 0.02f), new Vector3(w - 0.08f, 0.035f, 0.01f), default, 8f, g);
+                for (int i = 0; i < 4; i++)
+                {
+                    float x = -0.12f + i * 0.08f;
+                    bool tripped = row == 1 && i == 2;
+                    Block("Breaker", "Rubber", new Vector3(x, y, 0.05f), new Vector3(0.06f, 0.11f, 0.05f), default, 8f, g);
+                    Block("Tag", "Paper", new Vector3(x, y + 0.04f, 0.0755f), new Vector3(0.04f, 0.015f, 0.002f), default, 8f, g);
+                    Block("Lever", tripped ? "RedPaint" : "Enamel", new Vector3(x, y + (tripped ? -0.018f : 0.012f), 0.083f),
+                          new Vector3(0.016f, 0.028f, 0.018f), new Vector3(tripped ? 25f : -25f, 0, 0), 8f, g);
+                }
             }
-            Block("Label", "Notice", new Vector3(0, 0.22f, 0.124f), new Vector3(0.3f, 0.05f, 0.004f), default, 1f / 0.3f, g);
-            float up = ceiling - pos.y - 0.27f;
-            if (up > 0.05f) Cyl("Conduit", "DarkMetal", new Vector3(0.12f, 0.27f, 0.05f), 0.025f, up, 6, default, 2f, g);
+            Block("Label", "Notice", new Vector3(0, 0.235f, 0.07f), new Vector3(0.3f, 0.04f, 0.004f), default, 1f / 0.3f, g);
+            // Door on a hinge down the left edge, swung most of the way open.
+            var hinge = new GameObject("DoorHinge").transform;
+            hinge.SetParent(g, false);
+            hinge.localPosition = new Vector3(-w * 0.5f, 0, d);
+            hinge.localRotation = Quaternion.Euler(0, -115f, 0);
+            Block("Door", "PaintGreen", new Vector3(w * 0.5f, 0, 0.008f), new Vector3(w, h, 0.016f), default, 3f, hinge);
+            Block("DoorHazard", "Hazard", new Vector3(w * 0.5f, 0.12f, 0.018f), new Vector3(0.12f, 0.08f, 0.004f), default, 6f, hinge);
+            Block("Handle", "Chrome", new Vector3(w - 0.04f, 0, 0.022f), new Vector3(0.015f, 0.06f, 0.012f), default, 8f, hinge);
+            foreach (float hy in new[] { -0.2f, 0.2f })
+                Cyl("Knuckle", "Steel", new Vector3(-w * 0.5f, hy - 0.03f, d), 0.008f, 0.06f, 6, default, 8f, g);
+            float up = ceiling - pos.y - h * 0.5f;
+            if (up > 0.05f) Cyl("Conduit", "DarkMetal", new Vector3(0.12f, h * 0.5f, 0.05f), 0.025f, up, 6, default, 2f, g);
         }
 
         static void FirstAid(Vector3 pos, float yaw, Transform parent)

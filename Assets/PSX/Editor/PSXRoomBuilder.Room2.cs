@@ -57,6 +57,7 @@ namespace GJ.PSX.EditorTools
             BuildRoom2Lights();
             DressRoom2();
             AutoColliders(_world);
+            Life2();
 
             var rig = BuildPlayer(new Vector3(0.6f, 0f, 0.9f), 0f);
             BuildDirector(rig, puzzle, 75f, "SECTOR 4 - PUMP ROOM\nyou have 75 seconds of air", 2, "",

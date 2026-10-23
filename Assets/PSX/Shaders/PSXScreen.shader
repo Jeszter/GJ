@@ -96,13 +96,21 @@ Shader "PSX/Screen"
                 float3 col = float3(0.085, 0.073, 0.064) * (0.78 + 0.4 * (w.y + 0.5)) + n * 0.012;
 
                 // Recessed lip round the glass: shadowed under the top edge, catching light along the bottom.
+                float facing = -p.y / max(length(p), 1e-3);
+                float diag = dot(normalize(p + 1e-4), normalize(float2(-1.0, 1.0)));
                 if (sd < 0.075)
                 {
                     float k = saturate(sd / 0.075);
-                    float facing = -p.y / max(length(p), 1e-3);
                     float3 lip = float3(0.025, 0.022, 0.02) + max(facing, 0.0) * float3(0.09, 0.08, 0.07);
                     col = lerp(lip, col, smoothstep(0.55, 1.0, k));
-                    if (k > 0.88) col *= 1.25;   // a thin highlight where the bezel turns outward
+                }
+                // A thin chrome trim ring round the tube, bright where it faces the light (top left).
+                else if (sd < 0.1)
+                {
+                    float k = (sd - 0.075) / 0.025;
+                    float shine = 0.32 + 0.3 * diag + 0.25 * sin(k * 3.14159);
+                    col = float3(0.55, 0.54, 0.5) * shine + n * 0.02;
+                    if (k < 0.12 || k > 0.88) col *= 0.45;
                 }
 
                 // Ventilation slots along the top.
@@ -136,16 +144,38 @@ Shader "PSX/Screen"
                 if (led < 0.009) col = ledCol;
                 col += ledCol * 0.35 * tvOn * exp(-led * 55.0);
 
-                // Wood veneer band round the outside of the set.
-                float edge = min(min(uv.x, 1.0 - uv.x) * aspectW, min(uv.y, 1.0 - uv.y));
-                if (edge < 0.032)
+                // Four little screws holding the front panel, near its corners.
+                float2 sq = abs(w) - float2(aspectW * 0.5 - 0.085, 0.5 - 0.075);
+                if (length(sq) < 0.009)
                 {
-                    float grain = sin(w.y * 140.0 + sin(w.x * 9.0) * 3.0 + Hash(float2(px.y, 3.0)) * 0.8);
-                    float3 wood = float3(0.23, 0.125, 0.06) * (0.82 + 0.14 * grain + n * 0.1);
-                    wood *= 0.75 + 0.45 * (w.y + 0.5);
-                    if (edge < 0.004) wood *= 0.45;
-                    if (edge > 0.027) wood *= 0.55;
+                    col = float3(0.32, 0.31, 0.29) * (0.8 + 0.4 * saturate(-sq.y / 0.009 + 0.5));
+                    if (abs(sq.x - sq.y) < 0.0025) col *= 0.35;
+                }
+
+                // The set's outline: rounded corners and a wood veneer surround with a bevelled inner edge. Past it,
+                // the dark room the set stands in.
+                float outer = RoundBox(w, float2(aspectW * 0.5 - 0.01, 0.49), 0.075);
+                if (outer > 0.0) return float3(0.012, 0.011, 0.012) * (1.0 - saturate(outer * 30.0));
+                float band = -outer;
+                const float woodWidth = 0.05;
+                if (band < woodWidth)
+                {
+                    float grain = sin(w.y * 150.0 + sin(w.x * 7.0 + w.y * 3.0) * 4.0 + Hash(float2(px.y, 3.0)) * 0.8)
+                                + 0.5 * sin(w.x * 60.0 + w.y * 20.0);
+                    float3 wood = float3(0.25, 0.135, 0.065) * (0.8 + 0.1 * grain + n * 0.12);
+                    // Rounded outer edge: dark at the very rim, a soft sheen, then the flat face.
+                    float roll = saturate(band / 0.014);
+                    wood *= lerp(0.35, 1.0, roll) + 0.35 * sin(roll * 3.14159) * saturate(0.6 + w.y);
+                    // Lit from above: top brighter, bottom in shadow.
+                    wood *= 0.75 + 0.5 * (w.y + 0.5);
+                    // Inner bevel: a groove, then a lip catching the light before the plastic front starts.
+                    if (band > woodWidth - 0.008 && band < woodWidth - 0.004) wood *= 0.4;
+                    else if (band >= woodWidth - 0.004) wood *= 1.35;
                     col = wood;
+                }
+                else if (band < woodWidth + 0.01)
+                {
+                    col *= 0.55 + 0.45 * saturate((band - woodWidth) / 0.01);   // shadow the wood casts on the front
                 }
                 return col;
             }
@@ -207,8 +237,7 @@ Shader "PSX/Screen"
                     // The glass itself: dark green-grey when nothing is lit, with a soft glare top left.
                     c += float3(0.03, 0.036, 0.034) * crt;
                     float2 g = (p - float2(-0.5, 0.58)) * float2(0.9, 1.7);
-                    c += crt * 0.055 * exp(-dot(g, g) * 3.0);
-                    c += crt * 0.02 * smoothstep(0.03, 0.0, abs(length(p - float2(0.9, 1.2)) - 1.25)) * step(p.x, 0.2);
+                    c += crt * 0.05 * exp(-dot(g, g) * 3.0);
 
                     // Rounded tube corners; past them, the set.
                     float2 e = float2(glassAspect, 1.0);

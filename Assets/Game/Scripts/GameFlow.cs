@@ -219,7 +219,8 @@ namespace GJ.Game
             BeginPlay(true);
         }
 
-        // Types one card out; a key finishes it, the next key moves on. Esc (or Backspace) skips the whole story.
+        // Types one card out, holds it a moment and moves on by itself; a key finishes the typing or moves on sooner.
+        // Esc (or Backspace, Tab, right click) skips the whole story.
         IEnumerator Type(string card, System.Action<bool> skipAll)
         {
             _story.text = "";
@@ -247,7 +248,7 @@ namespace GJ.Game
             for (float t = 0f; ; t += Time.unscaledDeltaTime)
             {
                 if (SkipStory()) { skipAll(true); yield break; }
-                if (Advance() || t > 7f) break;
+                if (Advance() || t > 3.5f) break;
                 _hint.text = Mathf.Repeat(t, 1.2f) < 0.8f ? "[ENTER] next" : "";
                 yield return null;
             }

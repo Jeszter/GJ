@@ -258,8 +258,8 @@ namespace GJ.Game
                 for (int x = 0; x < W; x++)
                 {
                     float dx = (x + 0.5f) / W - 0.5f, dy = (y + 0.5f) / H - 0.5f;
-                    float v = 1f - (dx * dx * 1.1f + dy * dy * 1.6f) * 1.2f;
-                    Color c = _c[y * W + x] * v;
+                    float v = 1f - (dx * dx * 1.1f + dy * dy * 1.6f) * 0.6f;
+                    Color c = _c[y * W + x] * v * 1.2f;
                     float d = Dither(x, y) / 28f;
                     c.r = Mathf.Round(Mathf.Clamp01(c.r + d) * 28f) / 28f;
                     c.g = Mathf.Round(Mathf.Clamp01(c.g + d) * 28f) / 28f;
@@ -275,7 +275,7 @@ namespace GJ.Game
 
         void Mine()
         {
-            Gradient(0, 72, C(0.03f, 0.04f, 0.1f), C(0.2f, 0.14f, 0.24f));
+            Gradient(0, 72, C(0.05f, 0.07f, 0.16f), C(0.34f, 0.22f, 0.34f));
             // The glow of a far-off town over the horizon.
             for (int y = 36; y < 72; y++)
                 for (int x = 0; x < W; x++)

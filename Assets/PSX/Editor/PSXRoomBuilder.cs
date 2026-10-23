@@ -104,6 +104,7 @@ namespace GJ.PSX.EditorTools
             BuildLights();
             DressRoom1();
             AutoColliders(_world);
+            Life1();
 
             var rig = BuildPlayer(new Vector3(0.7f, 0f, 0.8f), -12f);
             var puzzle = _fuse.gameObject.AddComponent<Game.FusePuzzle>();
@@ -304,15 +305,21 @@ namespace GJ.PSX.EditorTools
             return new Color(1f, 1f, 1f, a);
         }, true);
 
+        // Teardrop flame: round at the root, drawn out to a point, in bands from deep red at the rim through orange
+        // to a pale centre, with a blue root.
         static Texture2D Flame() => MakeTexture("flame", 32, (x, y) =>
         {
             float u = (x + 0.5f) / 32f - 0.5f;
             float v = (y + 0.5f) / 32f;
-            float width = 0.42f * Mathf.Sin(Mathf.Clamp01(v) * Mathf.PI * 0.95f + 0.1f) * (1f - v * 0.55f);
+            float width = 0.44f * Mathf.Pow(Mathf.Sin(Mathf.Clamp01(v * 1.05f) * Mathf.PI * 0.92f + 0.12f), 0.8f) * Mathf.Pow(1f - v, 0.7f);
             float a = Mathf.Clamp01(1f - Mathf.Abs(u) / Mathf.Max(0.01f, width));
-            a = Mathf.Round(a * 4f) / 4f;
-            var c = Color.Lerp(new Color(1f, 0.45f, 0.1f), new Color(1f, 0.95f, 0.7f), a);
-            if (v < 0.25f && a > 0.5f) c = new Color(0.35f, 0.5f, 1f); // blue root
+            a = Mathf.Clamp01(a * 1.25f - v * 0.15f);
+            a = Mathf.Round(a * 7f) / 7f;
+            Color c = a > 0.75f ? new Color(1f, 0.97f, 0.85f)
+                    : a > 0.5f ? new Color(1f, 0.8f, 0.35f)
+                    : a > 0.25f ? new Color(1f, 0.5f, 0.12f)
+                    : new Color(0.85f, 0.22f, 0.05f);
+            if (v < 0.2f && a > 0.3f) c = Color.Lerp(new Color(0.25f, 0.4f, 1f), c, v / 0.2f); // blue root
             return new Color(c.r, c.g, c.b, a);
         }, true);
 
@@ -532,6 +539,7 @@ namespace GJ.PSX.EditorTools
             Lit("SignWeight", lit, Sign("sign_weight", 96, 32, new Color(0.62f, 0.12f, 0.08f), new Color(0.9f, 0.85f, 0.75f), 1, "BOLT", "COUNTERWEIGHT"));
             Lit("Calendar", lit, Sign("calendar", 32, 32, new Color(0.78f, 0.74f, 0.64f), new Color(0.55f, 0.12f, 0.08f), 1, "MAY", "1987"));
             MakePropMaterials(lit);
+            MakeLifeMaterials();
 
             var strip = GlowStrip();
             Additive("WaterStream", add, strip, new Color(0.45f, 0.65f, 0.8f) * 0.9f);
@@ -547,6 +555,11 @@ namespace GJ.PSX.EditorTools
             Additive("Halo", add, Glow(), new Color(1f, 0.75f, 0.45f) * 0.5f);
             Additive("RedHalo", add, Glow(), new Color(1f, 0.15f, 0.08f) * 0.6f);
             Additive("Flame", add, Flame(), Color.white * 1.4f);
+            Additive("FlameCore", add, Flame(), new Color(1f, 0.92f, 0.7f) * 1.3f);
+            Additive("FlameHalo", add, Glow(), new Color(1f, 0.5f, 0.18f) * 0.3f);
+            Additive("Mote", add, Glow(), new Color(1f, 0.9f, 0.75f) * 0.5f);
+            Additive("Steam", add, Glow(), new Color(0.6f, 0.65f, 0.7f) * 0.18f);
+            Additive("SparkFlash", add, Glow(), new Color(0.75f, 0.85f, 1f) * 2f);
         }
 
         static Material SaveMaterial(string name, Material m)
@@ -1794,9 +1807,11 @@ namespace GJ.PSX.EditorTools
             Place("Chimney", chimneyMb, "Chimney", Vector3.zero, default, zippo);
             var wheelGo = Cyl("Wheel", "Steel", new Vector3(0.0125f, 0.055f, -0.004f), 0.0045f, 0.008f, 6, new Vector3(90, 0, 0), 4f, zippo);
             Cyl("Hinge", "Chrome", new Vector3(-0.019f, 0.035f, -0.006f), 0.0018f, 0.012f, 6, new Vector3(90, 0, 0), 4f, zippo);
-            // Closed, the lid sits on top of the case; the hand animator swings it 135° about the hinge to open.
+            // Closed, the lid sits on top of the case and swallows the whole chimney; the hand animator swings it 135°
+            // about the hinge to open.
             var lidMb = new MeshBuilder();
-            lidMb.ChamferBox(new Vector3(0.019f, 0.01f, 0), new Vector3(0.038f, 0.02f, 0.013f), 0.004f);
+            lidMb.ChamferBox(new Vector3(0.019f, 0.0155f, 0), new Vector3(0.038f, 0.031f, 0.013f), 0.004f);
+            lidMb.ChamferBox(new Vector3(0.019f, 0.0012f, 0), new Vector3(0.0385f, 0.0024f, 0.0135f), 0.004f);
             var lidGo = Place("Lid", lidMb, "Chrome", new Vector3(-0.019f, 0.035f, 0), new Vector3(0, 0, 135), zippo);
             // Flint spark seen for a frame when the wheel is struck.
             var sparkMb = new MeshBuilder();
@@ -1804,9 +1819,20 @@ namespace GJ.PSX.EditorTools
             var flintSpark = Place("FlintSpark", sparkMb, "Flame", new Vector3(0.004f, 0.058f, -0.004f), default, zippo);
             flintSpark.SetActive(false);
 
-            var flameMb = new MeshBuilder();
-            flameMb.Cross(Vector3.zero, 0.028f, 0.06f);
-            var flame = Place("Flame", flameMb, "Flame", new Vector3(-0.003f, 0.06f, 0f), default, zippo);
+            // The flame in layers: a soft halo, the orange tongue, and a bright core low in it. They scale and lean
+            // together under one pivot.
+            var flame = new GameObject("Flame");
+            flame.transform.SetParent(zippo, false);
+            flame.transform.localPosition = new Vector3(-0.003f, 0.06f, 0f);
+            var haloMb = new MeshBuilder();
+            haloMb.Cross(new Vector3(0, -0.02f, 0), 0.085f, 0.085f);
+            Place("Halo", haloMb, "FlameHalo", Vector3.zero, default, flame.transform);
+            var tongueMb = new MeshBuilder();
+            tongueMb.Cross(Vector3.zero, 0.03f, 0.068f);
+            Place("Tongue", tongueMb, "Flame", Vector3.zero, default, flame.transform);
+            var coreMb = new MeshBuilder();
+            coreMb.Cross(new Vector3(0, 0.003f, 0), 0.014f, 0.036f);
+            Place("Core", coreMb, "FlameCore", Vector3.zero, default, flame.transform);
             var lighterLight = new GameObject("LighterLight").AddComponent<Light>();
             // Hung off the camera ahead of the hand: at the flame itself inverse-square falloff would burn the hand
             // white (the hand gets its warmth from emission instead).
@@ -1821,6 +1847,7 @@ namespace GJ.PSX.EditorTools
             flicker.flameLight = lighterLight;
             flicker.flame = flame.transform;
             flicker.baseIntensity = 1.1f;
+            flicker.lean = 7f;
 
             // Sway, bob, breath, tremble, and lighting the Zippo by hand.
             var handAudio = hand.gameObject.AddComponent<AudioSource>();

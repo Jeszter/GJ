@@ -43,6 +43,12 @@ namespace GJ.PSX.EditorTools
             Save("drip", Drip());
             Save("rumble", Rumble());
             Save("gasp", Gasp());
+            Save("clock_tick", ClockTick());
+            Save("spark", Spark());
+            Save("squeak", Squeak());
+            Save("radio_loop", RadioLoop());
+            Save("steam", Steam());
+            Save("buzz", Buzz());
             AssetDatabase.Refresh();
 
             // Unity normalises imported clips by default, which would undo the soft levels set above.
@@ -685,6 +691,121 @@ namespace GJ.PSX.EditorTools
                 hp += Coef(500f) * (lp - hp);
                 float rasp = 1f + 0.4f * Mathf.Sin(2f * Mathf.PI * 95f * t);
                 s[i] = (lp - hp) * env * rasp * 0.55f;
+            }
+            return s;
+        }
+
+        // ---------------------------------------------------------------- the room's small life
+
+        // Clock escapement: a dry little tick.
+        static float[] ClockTick()
+        {
+            _rng = new System.Random(40);
+            var s = Buffer(0.08f);
+            var r = new Resonator(3300f, 0.985f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float x = i < 25 ? Noise() : 0f;
+                s[i] = r.Tick(x) * 12f * 0.25f + x * 0.05f;
+            }
+            return s;
+        }
+
+        // Electric arc off a bare wire: crackling bursts with a buzz under them.
+        static float[] Spark()
+        {
+            _rng = new System.Random(41);
+            var s = Buffer(0.7f);
+            float hp = 0f, lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float env = Mathf.Exp(-t / 0.25f);
+                float crack = _rng.NextDouble() < 0.02 ? Noise() * 3f : Noise() * 0.3f;
+                lp += Coef(8000f) * (crack - lp);
+                hp += Coef(1500f) * (lp - hp);
+                float buzz = Mathf.Sign(Mathf.Sin(2f * Mathf.PI * 100f * t)) * 0.08f;
+                s[i] = Mathf.Clamp(((lp - hp) * 0.5f + buzz) * env, -0.6f, 0.6f);
+            }
+            return s;
+        }
+
+        // A rat's squeak: two quick chirps sliding up and down.
+        static float[] Squeak()
+        {
+            var s = Buffer(0.35f);
+            double phase = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float chirp = t < 0.12f ? t / 0.12f : t > 0.17f && t < 0.3f ? (t - 0.17f) / 0.13f : -1f;
+                if (chirp < 0f) continue;
+                float f = 2800f + 1600f * Mathf.Sin(chirp * Mathf.PI) + 300f * Mathf.Sin(t * 180f);
+                phase += 2.0 * Math.PI * f / Rate;
+                s[i] = (float)Math.Sin(phase) * Mathf.Sin(chirp * Mathf.PI) * 0.22f;
+            }
+            return s;
+        }
+
+        // A transistor radio left on: hiss and crackle, and under it a faint, far-off tune that comes and goes. Loops.
+        static float[] RadioLoop()
+        {
+            _rng = new System.Random(42);
+            return Looped(16f, 2f, 0.4f, s =>
+            {
+                int[] tune = { 0, 3, 5, 7, 5, 3, 0, -2, 0, 3, 7, 10, 7, 5, 3, 0 };
+                for (int k = 0; k < tune.Length; k++)
+                {
+                    float f = Note(tune[k]);
+                    int at = Mathf.RoundToInt(k * 1f * Rate);
+                    for (int i = 0; i < Rate && at + i < s.Length; i++)
+                    {
+                        float t = (float)i / Rate;
+                        float tone = Mathf.Sin(2f * Mathf.PI * f * t) + 0.5f * Mathf.Sin(2f * Mathf.PI * f * 2f * t) + 0.3f * Mathf.Sin(2f * Mathf.PI * f * 3f * t);
+                        s[at + i] += tone * Mathf.Min(1f, t / 0.02f) * Mathf.Exp(-t / 0.6f) * 0.12f;
+                    }
+                }
+                float lp = 0f, hp = 0f, fade = 0f;
+                for (int i = 0; i < s.Length; i++)
+                {
+                    float t = (float)i / Rate;
+                    fade += Coef(0.5f) * ((0.4f + 0.6f * Mathf.Abs(Noise())) - fade);
+                    // The tune through a tiny speaker: no lows, no highs, drifting in and out of the station.
+                    lp += Coef(2200f) * (s[i] * fade - lp);
+                    hp += Coef(350f) * (lp - hp);
+                    float hiss = Noise() * 0.06f + (_rng.NextDouble() < 0.0015 ? Noise() * 0.5f : 0f);
+                    s[i] = (lp - hp) * 1.6f + hiss * (1.3f - fade);
+                }
+            });
+        }
+
+        // Steam escaping a bad joint: steady hiss with a slow waver. Loops.
+        static float[] Steam()
+        {
+            _rng = new System.Random(43);
+            var s = Buffer(2.4f);
+            float lp = 0f, hp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                lp += Coef(7500f) * (Noise() - lp);
+                hp += Coef(2500f) * (lp - hp);
+                s[i] = (lp - hp) * 0.3f * (0.85f + 0.15f * Mathf.Sin(t * 5.3f));
+            }
+            return MakeLoop(s, 0.2f);
+        }
+
+        // A bulb's filament stuttering: mains buzz with clicks.
+        static float[] Buzz()
+        {
+            _rng = new System.Random(44);
+            var s = Buffer(0.6f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float on = Mathf.Sin(t * 60f) > -0.2f ? 1f : 0.1f;
+                float saw = (t * 100f) % 1f * 2f - 1f;
+                s[i] = (saw * 0.12f + (_rng.NextDouble() < 0.004 ? Noise() * 0.4f : 0f)) * on * Mathf.Clamp01((0.6f - t) / 0.1f);
             }
             return s;
         }
