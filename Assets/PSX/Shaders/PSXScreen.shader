@@ -156,11 +156,9 @@ Shader "PSX/Screen"
                     if (abs(sq.x - sq.y) < 0.0025) col *= 0.35;
                 }
 
-                // The set's outline: rounded corners and a wood veneer surround with a bevelled inner edge. Past it,
-                // the dark room the set stands in.
-                float outer = RoundBox(w, float2(aspectW * 0.5 - 0.01, 0.49), 0.075);
-                if (outer > 0.0) return float3(0.012, 0.011, 0.012) * (1.0 - saturate(outer * 30.0));
-                float band = -outer;
+                // The set fills the whole window: a wood veneer surround right out to the edges, with a bevelled inner
+                // edge where it meets the plastic front.
+                float band = -RoundBox(w, float2(aspectW * 0.5, 0.5), 0.004);
                 const float woodWidth = 0.05;
                 if (band < woodWidth)
                 {

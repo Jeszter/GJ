@@ -56,6 +56,7 @@ namespace GJ.PSX.EditorTools
             BuildRoom2Props();
             BuildRoom2Lights();
             DressRoom2();
+            Models2();
             AutoColliders(_world);
             Life2();
 

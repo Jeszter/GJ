@@ -16,6 +16,7 @@ namespace GJ.Game
         enum State { Title, Intro, Playing, Paused, End }
 
         public RoomDirector director;
+        public StoryStage stage;           // 3D sets filmed for the story cards; the painted plates are the fallback
         public FirstPersonController controller;
         public Transform head;
         public GameObject hand;
@@ -211,7 +212,8 @@ namespace GJ.Game
             for (int i = 0; i < Story.Length; i++)
             {
                 Snow(0.9f);
-                _introArt.Show(i);
+                if (stage != null) { stage.Show(i); _art.texture = stage.Texture; }
+                else _introArt.Show(i);
                 for (int d = 0; d < _dots.Length; d++)
                     _dots[d].color = d == i ? new Color(0.95f, 0.8f, 0.5f) : d < i ? new Color(0.5f, 0.42f, 0.32f) : new Color(0.22f, 0.2f, 0.18f);
                 bool skipAll = false;
@@ -220,6 +222,7 @@ namespace GJ.Game
             }
             _artPanel.gameObject.SetActive(false);
             _skip.gameObject.SetActive(false);
+            if (stage != null) stage.Hide();
             _story.text = "";
             _hint.text = "";
             Snow(1f);
@@ -426,7 +429,11 @@ namespace GJ.Game
             _static = Mathf.MoveTowards(_static, 0f, Time.unscaledDeltaTime * 4f);
             Shader.SetGlobalFloat(StaticId, _static);
 
-            if (_state == State.Intro) _introArt?.Tick(Time.unscaledDeltaTime);
+            if (_state == State.Intro)
+            {
+                if (stage != null) stage.Tick(Time.unscaledDeltaTime);
+                else _introArt?.Tick(Time.unscaledDeltaTime);
+            }
             UpdateMusic();
 
             UpdateTvControls();

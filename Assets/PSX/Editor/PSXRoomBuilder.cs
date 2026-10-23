@@ -103,6 +103,7 @@ namespace GJ.PSX.EditorTools
             BuildDetails();
             BuildLights();
             DressRoom1();
+            Models1();
             AutoColliders(_world);
             Life1();
 
@@ -113,6 +114,8 @@ namespace GJ.PSX.EditorTools
             BuildDirector(rig, puzzle, 90f, "find a way out\nyou have 90 seconds of air", 1, "Room02",
                 new[] { new Vector3(-0.4f, 0.35f, 1.2f), new Vector3(2.3f, 2.6f, 0.6f), new Vector3(-1.6f, 1.5f, 5.6f) },
                 new[] { new Vector3(-6f, 8f, 0f), new Vector3(24f, -32f, 0f), new Vector3(8f, 40f, 0f) });
+            var stage = BuildStoryStage();
+            UnityEngine.Object.FindFirstObjectByType<Game.GameFlow>().stage = stage;
             SetupRenderSettings();
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("PSX room built: " + ScenePath);
@@ -540,6 +543,7 @@ namespace GJ.PSX.EditorTools
             Lit("Calendar", lit, Sign("calendar", 32, 32, new Color(0.78f, 0.74f, 0.64f), new Color(0.55f, 0.12f, 0.08f), 1, "MAY", "1987"));
             MakePropMaterials(lit);
             MakeLifeMaterials();
+            MakeModelMaterials(lit);
 
             var strip = GlowStrip();
             Additive("WaterStream", add, strip, new Color(0.45f, 0.65f, 0.8f) * 0.9f);
@@ -558,6 +562,7 @@ namespace GJ.PSX.EditorTools
             Additive("FlameCore", add, Flame(), new Color(1f, 0.92f, 0.7f) * 1.3f);
             Additive("FlameHalo", add, Glow(), new Color(1f, 0.5f, 0.18f) * 0.3f);
             Additive("Mote", add, Glow(), new Color(1f, 0.9f, 0.75f) * 0.5f);
+            Additive("MoonGlow", add, Glow(), new Color(0.85f, 0.88f, 1f) * 1.3f);
             Additive("Steam", add, Glow(), new Color(0.6f, 0.65f, 0.7f) * 0.18f);
             Additive("SparkFlash", add, Glow(), new Color(0.75f, 0.85f, 1f) * 2f);
         }
