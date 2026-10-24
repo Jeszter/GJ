@@ -29,6 +29,7 @@ namespace GJ.Game
         Vector3 _rest;
         float _raise, _kick;
         Text _ammo;
+        Image _dot;
         bool _busy;
 
         void Awake()
@@ -71,6 +72,8 @@ namespace GJ.Game
             viewModel.localRotation = Quaternion.Euler(-25f * _kick, 0f, 0f);
             if (_raise <= 0f && !Drawn && viewModel.gameObject.activeSelf) viewModel.gameObject.SetActive(false);
             _ammo.text = Owned && Drawn ? new string('|', rounds) + new string('.', Mathf.Max(0, 6 - rounds)) : "";
+            // The round goes where the eye looks, not where the barrel seems to point: show where that is.
+            _dot.enabled = Owned && Drawn && _raise > 0.95f;
 
             // Not while dead or in a menu (the lighter hand is switched off then too).
             if (!Owned || FirstPersonController.Frozen || (lighterHand != null && !lighterHand.enabled)) return;
@@ -148,6 +151,17 @@ namespace GJ.Game
             rt.sizeDelta = new Vector2(120f, 30f);
             var shadow = _ammo.gameObject.AddComponent<Shadow>();
             shadow.effectColor = new Color(0, 0, 0, 0.8f);
+
+            // A two-pixel aiming dot in the middle of the screen, with a dark edge so it shows on a lit wall too.
+            _dot = new GameObject("Aim").AddComponent<Image>();
+            _dot.transform.SetParent(canvasGo.transform, false);
+            _dot.color = new Color(0.95f, 0.85f, 0.6f, 0.9f);
+            _dot.raycastTarget = false;
+            _dot.rectTransform.sizeDelta = new Vector2(2f, 2f);
+            var edge = _dot.gameObject.AddComponent<Outline>();
+            edge.effectColor = new Color(0, 0, 0, 0.7f);
+            edge.effectDistance = new Vector2(1f, -1f);
+            _dot.enabled = false;
         }
     }
 }

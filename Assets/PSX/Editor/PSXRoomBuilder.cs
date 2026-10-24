@@ -466,7 +466,6 @@ namespace GJ.PSX.EditorTools
             Lit("Glove", lit, MakeTexture("glove", 16, (x, y) =>
                 Shade(new Color(0.24f, 0.17f, 0.12f), (Hash(x, y, 40) - 0.5f) * 0.08f + (y % 8 == 0 ? -0.05f : 0f))),
                 new Color(0.05f, 0.03f, 0.015f));
-            Lit("Sleeve", lit, Plain("sleeve", new Color(0.22f, 0.23f, 0.19f), 0.1f), new Color(0.06f, 0.035f, 0.02f));
             // Brushed steel: faint vertical streaks.
             Lit("Chrome", lit, MakeTexture("chrome", 16, (x, y) =>
                 Shade(new Color(0.62f, 0.63f, 0.66f), (Hash(x, 0, 41) - 0.5f) * 0.16f + (Hash(x, y, 42) - 0.5f) * 0.05f)),
@@ -474,7 +473,6 @@ namespace GJ.PSX.EditorTools
             Lit("Chimney", lit, MakeTexture("chimney", 16, (x, y) =>
                 (x % 4 == 1 || x % 4 == 2) && (y % 4 == 1 || y % 4 == 2) ? new Color(0.05f, 0.04f, 0.04f) : new Color(0.62f, 0.63f, 0.66f)),
                 new Color(0.12f, 0.09f, 0.06f));
-            Lit("Nail", lit, Plain("nail", new Color(0.8f, 0.6f, 0.54f), 0.05f), new Color(0.2f, 0.12f, 0.09f));
             Lit("Glass", lit, Plain("glass", new Color(0.3f, 0.45f, 0.4f), 0.1f));
             Lit("Bulb", lit, Plain("bulb", Color.white, 0f), new Color(1f, 0.82f, 0.5f) * 2f);
             Lit("RedLamp", lit, Plain("red_lamp", Color.white, 0f), new Color(1f, 0.1f, 0.06f) * 2.5f);
@@ -556,6 +554,7 @@ namespace GJ.PSX.EditorTools
             MakePropMaterials(lit);
             MakeLifeMaterials();
             MakeModelMaterials(lit);
+            MakeArmsMaterial(lit);
             Lit("Gunmetal", lit, MakeTexture("gunmetal", 16, (x, y) =>
                 Shade(new Color(0.16f, 0.17f, 0.2f), (Hash(x, 0, 160) - 0.5f) * 0.06f + (Hash(x, y, 161) - 0.5f) * 0.04f)), new Color(0.03f, 0.03f, 0.035f));
             Lit("GripWood", lit, MakeTexture("grip_wood", 16, (x, y) =>
@@ -632,7 +631,8 @@ namespace GJ.PSX.EditorTools
         static bool SteadyTexture(string name) =>
             name.StartsWith("Sign") || name.StartsWith("Note") || name == "VaultMetal" || name == "Display" || name == "Paper" ||
             name == "Calendar" || name == "Notice" || name == "Poster" || name == "Photo" || name == "ClockFace" ||
-            name == "FirstAid" || name == "Hazard" || name == "Gauge" || name == "ExitGlow" || name == "TankPaint";
+            name == "FirstAid" || name == "Hazard" || name == "Gauge" || name == "ExitGlow" || name == "TankPaint" ||
+            name == "Arms";
 
         // A handwritten page: aged paper darkening to the edges, faint rules, lines of ink scrawl with gaps for words,
         // a fold across the middle, a coffee ring and a dog-eared corner. torn: a ragged top edge, a scrap rather than
@@ -1891,9 +1891,8 @@ namespace GJ.PSX.EditorTools
             fpc.head = head;
             fpc.stepClip = PSXSoundGenerator.Load("footstep");
 
-            // Hand holding a lighter in the lower right of the view. Modelled as seen: the lighter stands upright
-            // facing the camera, four fingers wrap its front, the thumb runs up its left side to the wheel and the
-            // wrist drops straight down into the sleeve. A small yaw shows a little of the back of the hand.
+            // Hand holding a lighter in the lower right of the view, the lighter standing upright facing the camera.
+            // A small yaw shows a little of the back of the hand.
             var hand = new GameObject("LighterHand").transform;
             hand.SetParent(head, false);
             hand.localPosition = new Vector3(0.085f, -0.105f, 0.3f);
@@ -1901,53 +1900,8 @@ namespace GJ.PSX.EditorTools
 
             // Open right palm toward the camera, lighter pinched in front of it: fingers point left and curl toward
             // the camera round the lighter's left side (nails showing), the thumb comes up on the right to the wheel,
-            // the wrist runs down-right into the sleeve. Same pose as the team's reference frame.
-            var skinMb = new MeshBuilder();
-            var nailMb = new MeshBuilder();
-            skinMb.Limb(new Vector3(0.008f, -0.07f, 0.004f), new Vector3(0.006f, 0.014f, -0.006f), 0.07f, 0.026f, 0.078f, 0.022f, Vector3.back);
-            skinMb.Limb(new Vector3(0.03f, -0.068f, 0.0f), new Vector3(0.038f, -0.022f, -0.012f), 0.032f, 0.03f, 0.026f, 0.026f, Vector3.back);
-            // Index and middle finger wrap the lighter's left edge and press its front; ring and pinky tuck under it.
-            float[] fingerY = { 0.022f, 0.002f, -0.018f, -0.036f };
-            float[] fingerR = { 0.0094f, 0.0098f, 0.0092f, 0.0078f };
-            float[] fingerReach = { 1f, 1.04f, 0.97f, 0.84f };
-            for (int i = 0; i < 4; i++)
-            {
-                float y = fingerY[i], r = fingerR[i], k = fingerReach[i];
-                bool holds = i < 2;
-                var knuckle = new Vector3(-0.014f, y, -0.004f);
-                var joint1 = knuckle + new Vector3(-0.03f, 0.002f, -0.01f) * k;
-                var joint2 = joint1 + new Vector3(-0.002f, 0.001f, -0.022f) * k;
-                var tip = holds ? new Vector3(-0.025f, y + 0.003f, -0.043f) : joint2 + new Vector3(0.02f, 0.003f, 0.004f) * k;
-                skinMb.Tube(knuckle, joint1, r * 1.1f, r, 6, Vector3.up);
-                skinMb.Tube(joint1, joint2, r, r * 0.92f, 6, Vector3.up);
-                skinMb.Tube(joint2, tip, r * 0.9f, r * 0.78f, 6, Vector3.up);
-
-                // Nail on the outside of the curl (facing left and toward the camera).
-                Vector3 along = (tip - joint2).normalized;
-                Vector3 outward = Vector3.Cross(Vector3.up, along).normalized;
-                if (outward.z > 0f) outward = -outward;
-                Vector3 n0 = Vector3.Lerp(joint2, tip, 0.35f) + outward * r * 0.8f;
-                Vector3 n1 = Vector3.Lerp(joint2, tip, 0.95f) + outward * r * 0.62f;
-                nailMb.Limb(n0, n1, r * 0.95f, 0.0018f, r * 0.85f, 0.0018f, outward);
-            }
-            // Thumb rising on the right and pressing the lighter's right edge near the top.
-            skinMb.Tube(new Vector3(0.036f, -0.05f, -0.004f), new Vector3(0.044f, -0.012f, -0.018f), 0.016f, 0.0135f, 6, Vector3.back);
-            skinMb.Tube(new Vector3(0.044f, -0.012f, -0.018f), new Vector3(0.032f, 0.016f, -0.032f), 0.0135f, 0.0115f, 6, Vector3.back);
-            skinMb.Tube(new Vector3(0.032f, 0.016f, -0.032f), new Vector3(0.014f, 0.032f, -0.04f), 0.0112f, 0.0092f, 6, Vector3.back);
-            nailMb.Limb(new Vector3(0.026f, 0.023f, -0.047f), new Vector3(0.016f, 0.031f, -0.049f), 0.011f, 0.0018f, 0.01f, 0.0018f, new Vector3(0.25f, 0.2f, -1f));
-            // Wrist.
-            skinMb.Tube(new Vector3(0.012f, -0.06f, 0.004f), new Vector3(0.042f, -0.125f, 0.028f), 0.029f, 0.027f, 8, Vector3.back);
-            Place("Hand", skinMb, "Skin", Vector3.zero, default, hand);
-            Place("Nails", nailMb, "Nail", Vector3.zero, default, hand);
-
-            // Jacket sleeve with a cuff, running down-right out of frame.
-            var sleeveMb = new MeshBuilder();
-            sleeveMb.Tube(new Vector3(0.04f, -0.118f, 0.026f), new Vector3(0.12f, -0.32f, 0.11f), 0.038f, 0.06f, 8, Vector3.back);
-            sleeveMb.Tube(new Vector3(0.068f, -0.19f, 0.055f), new Vector3(0.072f, -0.2f, 0.059f), 0.048f, 0.049f, 8, Vector3.back);
-            Place("Sleeve", sleeveMb, "Sleeve", Vector3.zero, default, hand);
-            var cuffMb = new MeshBuilder();
-            cuffMb.Tube(new Vector3(0.038f, -0.112f, 0.024f), new Vector3(0.044f, -0.126f, 0.03f), 0.036f, 0.038f, 8, Vector3.back);
-            Place("Cuff", cuffMb, "DarkMetal", Vector3.zero, default, hand);
+            // the forearm runs down-right out of view. Same pose as the team's reference frame.
+            Arm(LighterGrip, hand);
 
             // Zippo sitting in the curled fingers: rounded-corner case, inner insert, perforated chimney, wheel,
             // and the lid swung open on its left-hand hinge.

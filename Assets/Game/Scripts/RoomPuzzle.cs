@@ -26,6 +26,9 @@ namespace GJ.Game
         // Where a body lying on the floor should look; null means at the door.
         public virtual Vector3? Focus => null;
 
+        // Once nothing is left working: what went wrong, shown under "one more time" so the next try can go better.
+        public virtual string FailReason => null;
+
         // The best option for an eye looking along forward, or null. lit: whether the lighter is burning.
         public abstract Option? Look(Vector3 eye, Vector3 forward, bool lit);
 

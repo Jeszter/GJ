@@ -16,14 +16,27 @@ namespace GJ.Game
         public override Vector3? Focus =>
             fuse.Current == Fuse.State.Burning ? fuse.FrontWorld + Vector3.up * 0.05f : (Vector3?)null;
 
+        public override string FailReason =>
+            fuse.Current == Fuse.State.Idle ? "the fuse was never lit" :
+            fuse.Current == Fuse.State.Fizzled ? "the water in the bucket put the fire out" : null;
+
         void Start()
         {
             fuse.Finished += RaiseSolved;
-            fuse.Fizzled += () => Say("the water put it out");
+            fuse.Fizzled += () => Say("the water in the bucket put it out");
         }
 
         public override Option? Look(Vector3 eye, Vector3 forward, bool lit)
         {
+            // The bucket first while it still sits on the powder and is what you're looking at: once the flame has
+            // died against it, the fuse's front is right beside it and relighting there only drowns it again.
+            if (bucket != null && BucketBlocksTrail())
+            {
+                float bucketAim = Aim(eye, forward, bucket.position + Vector3.up * 0.2f, 1.9f);
+                float frontAim = Aim(eye, forward, fuse.FrontWorld, 1.9f);
+                if (bucketAim > 0.8f && (fuse.Current == Fuse.State.Fizzled || bucketAim >= frontAim))
+                    return new Option { prompt = "[E] push the bucket off the powder", act = ShoveBucket };
+            }
             if (FuseInReach(eye, forward))
             {
                 if (!lit) return new Option { prompt = "[F] open the lighter" };
@@ -34,8 +47,6 @@ namespace GJ.Game
                     act = () => { if (fuse.Ignite()) Say("the fuse is lit"); }
                 };
             }
-            if (bucket != null && BucketBlocksTrail() && Aim(eye, forward, bucket.position, 1.8f) > 0.8f)
-                return new Option { prompt = "[E] push the bucket off the powder", act = ShoveBucket };
             return null;
         }
 

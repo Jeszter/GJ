@@ -306,8 +306,9 @@ namespace GJ.Game
         {
             _phase = Phase.Reviving;
             Time.timeScale = 1f;
-            Say("ONE MORE TIME");
-            for (float t = 0f; t < 1.5f; t += Time.deltaTime)
+            string reason = puzzle.FailReason;
+            Say(string.IsNullOrEmpty(reason) ? "ONE MORE TIME" : "ONE MORE TIME\n\n<size=10>" + reason + "</size>");
+            for (float t = 0f; t < (string.IsNullOrEmpty(reason) ? 1.5f : 3f); t += Time.deltaTime)
             {
                 _fade.color = new Color(0f, 0f, 0f, Mathf.Lerp(0.35f, 1f, t / 1.5f));
                 yield return null;

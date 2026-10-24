@@ -34,7 +34,7 @@ namespace GJ.Game
 
         public float drainSeconds = 80f;
 
-        bool _lockerOpen, _taken, _boltHoled, _ventHoled, _solved, _busy;
+        bool _lockerOpen, _taken, _boltHoled, _ventHoled, _solved, _busy, _saidSpent;
         float _boltSand = 1f, _ventSand = 1f;
         Vector3 _boltHopperRest, _boltWeightRest, _boltRest, _ventHopperRest;
         Quaternion _shutterRest;
@@ -43,6 +43,11 @@ namespace GJ.Game
         public override bool Working => _boltHoled && !_solved;
 
         public override Vector3? Focus => _boltHoled && !_solved ? boltHopperBody.position + Vector3.down * 0.6f : (Vector3?)null;
+
+        public override string FailReason =>
+            _solved || _boltHoled ? null :
+            !_taken ? "the revolver stayed in the locker" :
+            _ventHoled ? "the sand ran from the wrong hopper" : "the bolt's hopper was still full of sand";
 
         void Awake()
         {
@@ -68,7 +73,9 @@ namespace GJ.Game
                 if (!_lockerOpen) return new Option { prompt = "[E] open the locker", act = () => StartCoroutine(OpenLocker()) };
                 if (!_taken) return new Option { prompt = "[E] take the revolver", act = TakeRevolver };
             }
-            if (revolver != null && revolver.Owned && !revolver.Drawn && Aim(eye, forward, boltHopperBody.position, 6f) > 0.97f)
+            // Either hopper: the hint shouldn't tell you which one is on the bolt.
+            if (revolver != null && revolver.Owned && !revolver.Drawn && revolver.rounds > 0 &&
+                (Aim(eye, forward, boltHopperBody.position, 6f) > 0.97f || Aim(eye, forward, ventHopperBody.position, 6f) > 0.97f))
                 return new Option { prompt = "[Q] draw the revolver" };
             return null;
         }
@@ -114,6 +121,13 @@ namespace GJ.Game
 
         void Update()
         {
+            // Both rounds gone and the bolt's hopper still full: nothing in here can open the door now.
+            if (!_saidSpent && _taken && revolver != null && revolver.rounds <= 0 && !_boltHoled)
+            {
+                _saidSpent = true;
+                Say("no rounds left\n[R] try again");
+            }
+
             float dt = Time.deltaTime / drainSeconds;
             if (_boltHoled && _boltSand > 0f) _boltSand = Mathf.Max(0f, _boltSand - dt);
             if (_ventHoled && _ventSand > 0f) _ventSand = Mathf.Max(0f, _ventSand - dt);

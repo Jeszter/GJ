@@ -38,7 +38,7 @@ namespace GJ.Game
 
         bool _valveOpen, _onBucket, _hooked, _solved, _busyValve, _busyChute;
         float _tank, _fill, _wasted;
-        bool _saidDrain, _saidFilling, _saidFull, _saidEmpty;
+        bool _saidDrain, _saidFilling, _saidFull, _saidEmpty, _saidShort;
         Vector3 _weightTop, _boltRest;
         float _chainBase, _hookBase;
 
@@ -48,9 +48,19 @@ namespace GJ.Game
 
         // Still worth waiting for: water is going into the bucket, the bucket will pull the bolt, and there is enough
         // left in the cistern to finish the job.
-        public override bool Working => !_solved && IntoBucket && _hooked && _tank >= fillSeconds - _fill;
+        public override bool Working => !_solved && IntoBucket && _hooked && EnoughLeft;
 
         public override Vector3? Focus => Working ? counterweight.position + Vector3.up * 0.3f : (Vector3?)null;
+
+        // The first thing in the way, in the order the water has to go: out of the valve, down the chute, enough of it.
+        public override string FailReason =>
+            _solved ? null :
+            !_valveOpen && _tank > 0f ? "the valve was shut" :
+            !_onBucket ? "the water was running into the drain" :
+            !EnoughLeft ? "there wasn't enough water left in the cistern" :
+            !_hooked ? "the chain was not on the bolt" : null;
+
+        bool EnoughLeft => _tank >= fillSeconds - _fill;
 
         void Awake()
         {
@@ -154,6 +164,8 @@ namespace GJ.Game
             if (IntoBucket && _fill > 1.5f && !_saidFilling) { _saidFilling = true; Say("the bucket is filling"); }
             if (_valveOpen && _tank <= 0f && !Full && !_saidEmpty) { _saidEmpty = true; Say("the cistern is empty"); }
             if (Full && !_hooked && !_saidFull) { _saidFull = true; Say("the bucket is down. the chain is not on the bolt"); }
+            // Too much went down the drain: the bucket can't fill any more, whatever you do now.
+            if (!Full && !EnoughLeft && !_saidShort) { _saidShort = true; Say("not enough water left to fill the bucket\n[R] try again"); }
 
             if (!_solved && _hooked && Full)
             {
