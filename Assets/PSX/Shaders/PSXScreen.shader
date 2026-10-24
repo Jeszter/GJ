@@ -227,9 +227,8 @@ Shader "PSX/Screen"
                     float rows = _MainTex_TexelSize.w;
                     float scan = 0.5 + 0.5 * cos(uv.y * rows * 6.2831853);
                     c *= 1.0 - crt * 0.28 * scan;
-                    c *= 1.0 - crt * 0.06 * smoothstep(0.0, 0.1, frac(uv.y * 0.6 - _Time.y * 0.08)) * (1.0 - smoothstep(0.1, 0.25, frac(uv.y * 0.6 - _Time.y * 0.08)));
+                    c *= 1.0 - crt * 0.03 * smoothstep(0.0, 0.1, frac(uv.y * 0.6 - _Time.y * 0.08)) * (1.0 - smoothstep(0.1, 0.25, frac(uv.y * 0.6 - _Time.y * 0.08)));
                     c *= lerp(1.0, 1.15 - 0.55 * dot(p, p) * 0.5, crt);
-                    c *= 1.0 - crt * 0.025 * sin(_Time.y * 47.0);
 
                     // Aperture grille on the window's own pixel columns.
                     float column = fmod(floor(i.uv.x * max(_PsxWindow.x, 1.0)), 3.0);

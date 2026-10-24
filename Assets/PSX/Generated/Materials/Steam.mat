@@ -29,7 +29,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _SnapResolution: 120
+    - _SnapResolution: 180
     m_Colors:
     - _BaseColor: {r: 0.10800001, g: 0.117, b: 0.126, a: 0.18}
   m_BuildTextureStacks: []

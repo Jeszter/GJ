@@ -9,6 +9,7 @@ namespace GJ.Game
         public Fuse fuse;
         public Transform bucket;
         public float igniteRange = 1.3f;
+        public AudioClip shoveClip;
 
         public override bool Working => fuse.Current == Fuse.State.Burning;
 
@@ -33,9 +34,68 @@ namespace GJ.Game
                     act = () => { if (fuse.Ignite()) Say("the fuse is lit"); }
                 };
             }
-            if (bucket != null && BucketBlocksTrail() && Vector3.Distance(eye, bucket.position) < 1.6f)
-                return new Option { prompt = "the bucket is in the way - walk into it to push it" };
+            if (bucket != null && BucketBlocksTrail() && Aim(eye, forward, bucket.position, 1.8f) > 0.8f)
+                return new Option { prompt = "[E] push the bucket off the powder", act = ShoveBucket };
             return null;
+        }
+
+        // Shove the bucket sideways, off the trail and away from the walls.
+        public void ShoveBucket()
+        {
+            var body = bucket.GetComponent<Rigidbody>();
+            Vector3 p = bucket.position;
+            // Away from the nearest point of the trail, flat on the floor.
+            Vector3 nearest = fuse.transform.TransformPoint(fuse.PointAt(fuse.Burnt));
+            float best = float.MaxValue;
+            for (float d = fuse.Burnt; d <= fuse.Length; d += 0.05f)
+            {
+                Vector3 q = fuse.transform.TransformPoint(fuse.PointAt(d));
+                float dist = new Vector2(q.x - p.x, q.z - p.z).sqrMagnitude;
+                if (dist < best) { best = dist; nearest = q; }
+            }
+            // The trail bends, so "away from the nearest bit" can land on a later bit: try spots round the bucket and
+            // take the closest one that is clear of the whole unburnt trail and of walls and props.
+            Vector3 away = new Vector3(p.x - nearest.x, 0f, p.z - nearest.z);
+            if (away.sqrMagnitude < 0.0001f) away = Vector3.right;
+            Vector3 target = p + away.normalized * 0.7f;
+            var col = bucket.GetComponent<Collider>();
+            if (col != null) col.enabled = false;
+            bool found = false;
+            for (float r = 0.6f; r <= 1.6f && !found; r += 0.2f)
+                for (int k = 0; k < 16 && !found; k++)
+                {
+                    float a = Mathf.Atan2(away.z, away.x) + (k % 2 == 0 ? 1 : -1) * (k / 2) * Mathf.PI / 8f;
+                    var c = p + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * r;
+                    if (TrailDistance(c) < 0.55f) continue;
+                    if (Physics.CheckSphere(new Vector3(c.x, p.y + 0.2f, c.z), 0.17f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                    target = c;
+                    found = true;
+                }
+            if (col != null) col.enabled = true;
+            // Move the object and its body together and tell physics at once, or the body snaps it straight back.
+            var moved = new Vector3(target.x, p.y, target.z);
+            bucket.position = moved;
+            if (body != null)
+            {
+                body.position = moved;
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+            }
+            Physics.SyncTransforms();
+            if (shoveClip != null) AudioSource.PlayClipAtPoint(shoveClip, target, 0.8f);
+            Say("the bucket scrapes aside");
+        }
+
+        // Flat distance from a point to the part of the trail the flame hasn't reached yet.
+        float TrailDistance(Vector3 point)
+        {
+            float best = float.MaxValue;
+            for (float d = fuse.Burnt; d <= fuse.Length; d += 0.05f)
+            {
+                Vector3 q = fuse.transform.TransformPoint(fuse.PointAt(d));
+                best = Mathf.Min(best, new Vector2(q.x - point.x, q.z - point.z).magnitude);
+            }
+            return best;
         }
 
         bool FuseInReach(Vector3 eye, Vector3 forward)

@@ -111,6 +111,7 @@ namespace GJ.PSX.EditorTools
             var puzzle = _fuse.gameObject.AddComponent<Game.FusePuzzle>();
             puzzle.fuse = _fuse;
             puzzle.bucket = GameObject.Find("Room01/Props/Bucket")?.transform;
+            puzzle.shoveClip = PSXSoundGenerator.Load("clunk");
             BuildDirector(rig, puzzle, 90f, "find a way out\nyou have 90 seconds of air", 1, "Room02",
                 new[] { new Vector3(-0.4f, 0.35f, 1.2f), new Vector3(2.3f, 2.6f, 0.6f), new Vector3(-1.6f, 1.5f, 5.6f) },
                 new[] { new Vector3(-6f, 8f, 0f), new Vector3(24f, -32f, 0f), new Vector3(8f, 40f, 0f) });
@@ -585,8 +586,16 @@ namespace GJ.PSX.EditorTools
             m.SetTexture("_BaseMap", tex);
             m.SetColor("_EmissionColor", emission ?? Color.black);
             m.SetFloat("_Affine", SteadyTexture(name) ? 0f : 0.25f);
+            m.SetFloat("_DepthOffset", Decal(name) ? -2f : 0f);
+            m.SetFloat("_SnapResolution", 180f);
             SaveMaterial(name, m);
         }
+
+        // Thin things laid flat on another surface; drawn a touch in front of it (see _DepthOffset in PSX/Lit).
+        static bool Decal(string name) =>
+            name.StartsWith("Sign") || name.StartsWith("Note") || name == "Water" || name == "Grate" || name == "Hazard" ||
+            name == "Paper" || name == "Ash" || name == "Powder" || name == "Notice" || name == "Poster" || name == "Photo" ||
+            name == "Calendar";
 
         // The PS1's affine texture wobble is part of the look, but on big flat panels and anything with writing on it
         // (the door, signs, notes, displays) it makes the picture swim as you walk past; those keep their textures still.
@@ -634,6 +643,7 @@ namespace GJ.PSX.EditorTools
             var m = new Material(shader);
             m.SetTexture("_BaseMap", tex);
             m.SetColor("_BaseColor", color);
+            m.SetFloat("_SnapResolution", 180f);
             SaveMaterial(name, m);
         }
 
@@ -1796,6 +1806,7 @@ namespace GJ.PSX.EditorTools
             var cc = player.AddComponent<CharacterController>();
             cc.height = 1.7f;
             cc.radius = 0.3f;
+            cc.stepOffset = 0.15f;   // low enough that the water bucket gets pushed, not climbed
             cc.center = new Vector3(0, 0.85f, 0);
 
             var head = new GameObject("Head").transform;

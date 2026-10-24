@@ -11,6 +11,9 @@ Shader "PSX/Lit"
         _SnapResolution ("Vertex snap grid (rows)", Float) = 120
         _Affine ("Affine warp", Range(0,1)) = 0.5
         _Ambient ("Ambient boost", Float) = 1
+        // Pulls flat stuck-on things (puddles, grates, paper, signs) a hair toward the camera, so the vertex snapping
+        // can't make them fight the surface they lie on.
+        _DepthOffset ("Depth offset (decals)", Float) = 0
     }
     SubShader
     {
@@ -20,6 +23,7 @@ Shader "PSX/Lit"
         {
             Name "ForwardLit"
             Tags { "LightMode"="UniversalForward" }
+            Offset [_DepthOffset], [_DepthOffset]
 
             HLSLPROGRAM
             #pragma vertex vert
@@ -37,6 +41,7 @@ Shader "PSX/Lit"
                 float _SnapResolution;
                 float _Affine;
                 float _Ambient;
+                float _DepthOffset;
             CBUFFER_END
 
             struct Attributes
@@ -103,6 +108,7 @@ Shader "PSX/Lit"
         {
             Name "DepthOnly"
             Tags { "LightMode"="DepthOnly" }
+            Offset [_DepthOffset], [_DepthOffset]
             ZWrite On
             ColorMask R
 
@@ -118,6 +124,7 @@ Shader "PSX/Lit"
                 float _SnapResolution;
                 float _Affine;
                 float _Ambient;
+                float _DepthOffset;
             CBUFFER_END
 
             // Same snap as the lit pass, or depth and colour disagree.

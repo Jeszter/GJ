@@ -16,6 +16,7 @@ Shader "PSX/Additive"
             Tags { "LightMode"="UniversalForward" }
             Blend One One
             ZWrite Off
+            Offset -1, -1
             Cull Off
 
             HLSLPROGRAM
