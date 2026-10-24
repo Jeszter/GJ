@@ -159,17 +159,20 @@ namespace GJ.Game
             GameSession.BeginAttempt(SceneManager.GetActiveScene().name);
             LayOutBodies();
             puzzle.Arrived(cameFrom);
-            if (FreeAir)
-            {
-                if (Holding) _controls.text = "[E] use   [F] lighter";
-                Flash(startMessage, 5f);
-                return;
-            }
             if (revolver != null)
             {
                 revolver.SyncFromSession();
-                if (revolver.Owned) _controls.text = "[E] use   [F] lighter   [Q] revolver   [R] restart\n" + LetGoHint;
+                revolver.canAimAtSelf = () => _phase == Phase.Alive && puzzle.AllowsSelfShot;
+                revolver.ShotSelf += OnShotSelf;
             }
+            bool gun = revolver != null && revolver.Owned;
+            if (FreeAir)
+            {
+                if (Holding) _controls.text = "[E] use   [F] lighter" + (gun ? "   [Q] revolver" : "");
+                Flash(startMessage, 5f);
+                return;
+            }
+            if (gun) _controls.text = "[E] use   [F] lighter   [Q] revolver   [R] restart\n" + LetGoHint;
             string lastFail = GameSession.LastFail;
             GameSession.LastFail = null;
             int attempt = GameSession.Attempt;
@@ -180,6 +183,57 @@ namespace GJ.Game
         }
 
         void OnDestroy() => Time.timeScale = 1f;
+
+        // A blow that knocks the breath being held out of you (the graveyard fight): a red flash and a gasp, and the
+        // last one goes like any other death.
+        public void KnockBreath(string line)
+        {
+            if (_phase != Phase.Alive) return;
+            _hurt = 1f;
+            _air = Mathf.Max(0f, (_breath - 1) * breathSeconds);
+            if (heartbeatClip != null) _heart.PlayOneShot(heartbeatClip, 1f);
+            if (_air <= 0f) Kill(line);
+        }
+
+        // A punch with the lighter hand.
+        public void Jab()
+        {
+            if (handAnimator != null && Holding) handAnimator.Jab();
+        }
+
+        float _hurt;
+
+        // A flash over the whole view (a blow landing), fading out over the given real seconds.
+        public void ScreenFlash(Color color, float seconds)
+        {
+            _flashColor = color;
+            _flashLeft = _flashTime = Mathf.Max(0.01f, seconds);
+        }
+
+        // Muffle the world like a blow to the head (or let it back in).
+        public void Stun(bool on) => SetMuffled(on);
+
+        Color _flashColor;
+        float _flashLeft, _flashTime;
+
+        // A round through your own head: one more death the room carries on after, or, where the room says so, the
+        // end of the run.
+        void OnShotSelf()
+        {
+            var ending = puzzle.SelfShotEnding;
+            if (ending == null) Kill("one round, close to the temple.\nthe room did not stop.");
+            else if (_phase == Phase.Alive) StartCoroutine(DieForGood(ending[0], ending[1]));
+        }
+
+        IEnumerator DieForGood(string title, string line)
+        {
+            _deathLine = "one round, close to the temple.";
+            _air = 0f;
+            yield return Die();
+            _phase = Phase.Cleared;
+            yield return new WaitForSeconds(1f);
+            if (flow != null) flow.ShowEnding(title, line);
+        }
 
         // Every body from an earlier try at this room, back where it fell (the player's own capsule kept out of the way
         // while they are fitted between the walls).
@@ -194,7 +248,7 @@ namespace GJ.Game
                 var corpse = Instantiate(corpseTemplate, corpseTemplate.transform.parent);
                 corpse.name = "PastBody_" + (i + 1);
                 corpse.gameObject.SetActive(true);
-                corpse.LayDown(body.position, body.yaw, (i * 37 % 25) - 12f);
+                corpse.LayDown(body.position, body.yaw, 0f);
             }
             if (cc != null) cc.enabled = true;
         }
@@ -265,7 +319,12 @@ namespace GJ.Game
             {
                 if (canAct)
                 {
-                    if (option.Value.reach && handAnimator != null) handAnimator.Reach();
+                    if (handAnimator != null && Holding)
+                    {
+                        if (option.Value.reach) handAnimator.Reach();
+                        else if (option.Value.gesture == RoomPuzzle.Gesture.Grab) handAnimator.Grab();
+                        else if (option.Value.gesture == RoomPuzzle.Gesture.Push) handAnimator.Push();
+                    }
                     option.Value.act();
                 }
                 else if (note != null) OpenNote(note);
@@ -280,7 +339,17 @@ namespace GJ.Game
                 else handAnimator.Toggle();
             }
 
-            if (FreeAir) return;
+            if (FreeAir)
+            {
+                // No choking out here; only a flash, if something landed one.
+                if (_flashLeft > 0f)
+                {
+                    _flashLeft = Mathf.Max(0f, _flashLeft - Time.unscaledDeltaTime);
+                    float k = _flashLeft / _flashTime;
+                    _fade.color = new Color(_flashColor.r, _flashColor.g, _flashColor.b, _flashColor.a * k * k);
+                }
+                return;
+            }
             UpdateChoke();
 
             if (_air <= 0f)
@@ -310,6 +379,17 @@ namespace GJ.Game
             float dark = choke * (last ? 0.62f : 0.45f) * pulse;
             dark = Mathf.Max(dark, letGo * letGo * 0.8f);
             _fade.color = new Color(0f, 0f, 0f, dark);
+            if (_hurt > 0f)
+            {
+                _hurt = Mathf.Max(0f, _hurt - Time.deltaTime * 2f);
+                _fade.color = new Color(0.55f, 0f, 0f, Mathf.Max(dark, _hurt * 0.55f));
+            }
+            if (_flashLeft > 0f)
+            {
+                _flashLeft = Mathf.Max(0f, _flashLeft - Time.unscaledDeltaTime);
+                float k = _flashLeft / _flashTime;
+                _fade.color = new Color(_flashColor.r, _flashColor.g, _flashColor.b, Mathf.Max(dark, _flashColor.a * k * k));
+            }
             if (handAnimator != null) handAnimator.Tremble = Mathf.Max(choke, letGo * 0.7f);
 
             // The heart: through the choke of every breath, and all through the last one, quicker as it goes.

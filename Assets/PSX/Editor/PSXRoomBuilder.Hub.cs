@@ -88,7 +88,7 @@ namespace GJ.PSX.EditorTools
             Dust(new Vector3(0f, 1.6f, RoomMax.z * 0.5f), new Vector3(3f, 2.6f, RoomMax.z), 60, life);
 
             var rig = BuildPlayer(new Vector3(0f, 0f, 1.0f), 0f);
-            BuildDirector(rig, puzzle, 0, "SECTOR 4\n<size=10>four sealed rooms. walk out of every one of them</size>", 0, "");
+            BuildDirector(rig, puzzle, 0, "SECTOR 4\n<size=10>four sealed rooms. walk out of every one of them</size>", 0, "Chapel");
 
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.15f, 0.16f, 0.19f);

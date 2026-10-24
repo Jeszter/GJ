@@ -16,30 +16,15 @@ namespace GJ.PSX.EditorTools
             var body = new GameObject("PastBody").transform;
             body.SetParent(holder, false);
 
-            // Built standing (feet at 0, facing +Z), then laid down: up turns into +Z, the face looks at the ceiling.
-            var lay = Matrix4x4.identity;
-            lay.SetColumn(0, new Vector4(-1f, 0f, 0f, 0f));
-            lay.SetColumn(1, new Vector4(0f, 0f, 1f, 0f));
-            lay.SetColumn(2, new Vector4(0f, 1f, 0f, 0f));
-            lay.SetColumn(3, new Vector4(0f, 0.13f, -1.62f, 1f));
-
-            // Legs a little apart, arms flung out from the shoulders.
-            var cloth = new MeshBuilder { M = lay };
-            foreach (float s in new[] { -1f, 1f })
+            // The miner from the story cards, fallen on his back with an arm flung out: tipped back so his front faces
+            // the ceiling, turned so the head points along +Z, feet 1.6 m behind the origin.
+            var fallen = Model("../LOWHO/Zombie", Vector3.zero, 0f, 1.72f, body, 0f, null, null, PoseFallen, true);
+            if (fallen != null)
             {
-                cloth.Tube(new Vector3(0.1f * s, 0.86f, 0f), new Vector3(0.17f * s, 0.12f, 0f), 0.085f, 0.075f, 6, Vector3.forward, 2f);
-                cloth.Tube(new Vector3(0.22f * s, 1.42f, 0f), new Vector3(0.48f * s, 1.12f, -0.02f), 0.06f, 0.05f, 6, Vector3.forward, 2f);
+                fallen.transform.localPosition = new Vector3(0f, 0.14f, -1.62f);
+                fallen.transform.localRotation = Quaternion.Euler(0f, 180f, 0f) * Quaternion.Euler(-90f, 0f, 0f);
+                AsMiner(fallen);
             }
-            cloth.Limb(new Vector3(0, 0.84f, 0), new Vector3(0, 1.48f, 0), 0.36f, 0.22f, 0.44f, 0.24f, Vector3.forward, 2f);
-            Place("Clothes", cloth, "Coverall", Vector3.zero, default, body);
-            var skin = new MeshBuilder { M = lay };
-            skin.Tube(new Vector3(0, 1.5f, 0), new Vector3(0, 1.74f, 0.01f), 0.095f, 0.085f, 7, Vector3.forward, 4f);
-            foreach (float s in new[] { -1f, 1f })
-                skin.Tube(new Vector3(0.48f * s, 1.12f, -0.02f), new Vector3(0.56f * s, 1.03f, -0.02f), 0.045f, 0.04f, 5, Vector3.forward, 4f);
-            Place("Skin", skin, "Skin", Vector3.zero, default, body);
-            var boots = new MeshBuilder { M = lay };
-            foreach (float s in new[] { -1f, 1f }) boots.Box(new Vector3(0.17f * s, 0.06f, 0.04f), new Vector3(0.12f, 0.12f, 0.26f), 4f);
-            Place("Boots", boots, "Leather", Vector3.zero, default, body);
 
             // The hard hat knocked off and lying upturned beside the head.
             var hat = new MeshBuilder();
@@ -50,6 +35,36 @@ namespace GJ.PSX.EditorTools
             var corpse = body.gameObject.AddComponent<Game.Corpse>();
             body.gameObject.SetActive(false);
             return corpse;
+        }
+
+        // The model is painted as a zombie: the same body repainted as a man in his work blues.
+        static void AsMiner(GameObject model)
+        {
+            if (!Mats.ContainsKey("MinerBody")) Lit("MinerBody", Shader.Find("PSX/Lit"), MinerBodyTexture());
+            foreach (var r in model.GetComponentsInChildren<Renderer>())
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++) mats[i] = Mats["MinerBody"];
+                r.sharedMaterials = mats;
+            }
+        }
+
+        // The LOWHO zombie's texture with the green skin turned to a living (well, recently living) colour and the
+        // ragged shirt to faded blue overalls; everything darker left alone.
+        static Texture2D MinerBodyTexture()
+        {
+            var src = new Texture2D(2, 2);
+            src.LoadImage(System.IO.File.ReadAllBytes("Assets/ThirdParty/LOWHO/Texture/Texture.png"));
+            var tex = MakeTexture("miner_body", src.width, src.height, (x, y) =>
+            {
+                var c = src.GetPixel(x, y);
+                Color.RGBToHSV(c, out float h, out float sat, out float val);
+                if (sat > 0.18f && h > 0.15f && h < 0.48f) return Color.HSVToRGB(0.06f, 0.42f, Mathf.Clamp01(val * 1.05f));
+                if (sat > 0.25f && (h < 0.12f || h > 0.9f)) return Color.HSVToRGB(0.6f, 0.35f, Mathf.Clamp01(val * 0.9f));
+                return c;
+            });
+            Object.DestroyImmediate(src);
+            return tex;
         }
 
         // A spring plate let into the floor: a sunken steel frame round a striped tread that rides down under weight.

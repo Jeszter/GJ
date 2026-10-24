@@ -71,6 +71,8 @@ namespace GJ.PSX.EditorTools
             BuildRoom2();
             BuildRoom1();
             BuildHub();
+            BuildChapel();
+            BuildGraveyard();
             BuildMenu();
             FinishBuild();
         }
@@ -163,7 +165,7 @@ namespace GJ.PSX.EditorTools
         // The main menu first (the game starts there), then the rooms in order. Scenes that no longer exist drop out.
         static void FinishBuild()
         {
-            var order = new[] { MenuPath, HubPath, ScenePath, Scene2Path, Scene3Path, Scene4Path };
+            var order = new[] { MenuPath, HubPath, ScenePath, Scene2Path, Scene3Path, Scene4Path, ChapelPath, GraveyardPath };
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
             scenes.RemoveAll(s => System.Array.IndexOf(order, s.path) >= 0 || !File.Exists(s.path));
             int at = 0;
@@ -612,6 +614,61 @@ namespace GJ.PSX.EditorTools
             foreach (var (n, label) in HubSigns)
                 Lit("SignHub" + n, lit, Sign("sign_hub" + n, 64, 16, new Color(0.17f, 0.18f, 0.19f), new Color(0.78f, 0.76f, 0.7f), 1, label));
             Lit("GreenLamp", lit, Plain("green_lamp", Color.white, 0f), new Color(0.15f, 1f, 0.3f) * 2.2f);
+            // The chapel's coloured glass: small panes in reds, blues and golds between dark lead lines, glowing.
+            Lit("StainedGlass", lit, MakeTexture("stained_glass", 16, 32, (x, y) =>
+            {
+                if (x % 4 == 0 || y % 5 == 0 || x == 15 || y == 31) return new Color(0.06f, 0.06f, 0.07f);
+                var panes = new[] { new Color(0.7f, 0.12f, 0.1f), new Color(0.15f, 0.25f, 0.75f), new Color(0.85f, 0.65f, 0.15f), new Color(0.2f, 0.55f, 0.3f) };
+                var c = panes[(int)(Hash(x / 4, y / 5, 172) * 4f) % 4];
+                return Shade(c, (Hash(x, y, 173) - 0.5f) * 0.1f);
+            }), new Color(1.1f, 1f, 1.1f));
+            // Graveyard turf: dark grass going to bare earth.
+            Lit("Grass", lit, MakeTexture("grass", 32, (x, y) =>
+            {
+                var c = Color.Lerp(new Color(0.16f, 0.2f, 0.1f), new Color(0.24f, 0.19f, 0.12f), Hash(x / 4, y / 4, 174));
+                return Shade(c, (Hash(x, y, 175) - 0.5f) * 0.1f + (Hash(x, y / 3, 176) > 0.8f ? 0.06f : 0f));
+            }));
+            // The chapel: a red runner with a gold border, banners with a gold cross, and painted icons.
+            Lit("Carpet", lit, MakeTexture("carpet", 16, 32, (x, y) =>
+            {
+                bool border = x < 2 || x > 13;
+                bool diamond = Mathf.Abs(x - 7.5f) + Mathf.Abs((y % 16) - 7.5f) < 4f;
+                var c = border ? new Color(0.6f, 0.45f, 0.15f) : diamond ? new Color(0.45f, 0.08f, 0.07f) : new Color(0.32f, 0.05f, 0.05f);
+                return Shade(c, (Hash(x, y, 177) - 0.5f) * 0.06f);
+            }));
+            Lit("Banner", lit, MakeTexture("banner", 16, 32, (x, y) =>
+            {
+                bool cross = (x >= 7 && x <= 8 && y > 8 && y < 28) || (y >= 20 && y <= 21 && x > 3 && x < 12);
+                bool hem = y < 3 || x == 0 || x == 15;
+                var c = cross || hem ? new Color(0.75f, 0.58f, 0.2f) : new Color(0.38f, 0.06f, 0.06f);
+                if (y < 3 && x % 3 == 0) c = new Color(0.1f, 0.03f, 0.03f);
+                return Shade(c, (Hash(x, y, 178) - 0.5f) * 0.06f);
+            }), new Color(0.04f, 0.02f, 0.01f));
+            Lit("Icon", lit, MakeTexture("icon", 24, 32, (x, y) =>
+            {
+                if (x < 2 || y < 2 || x > 21 || y > 29) return Shade(new Color(0.7f, 0.55f, 0.2f), (Hash(x, y, 179) - 0.5f) * 0.1f);
+                float halo = Vector2.Distance(new Vector2(x, y), new Vector2(11.5f, 21f));
+                if (halo < 5f && halo > 3.2f) return new Color(0.85f, 0.7f, 0.25f);
+                if (halo <= 3.2f) return new Color(0.55f, 0.4f, 0.3f);
+                if (Mathf.Abs(x - 11.5f) < 5f - (y - 4) * 0.08f && y < 17) return Shade(new Color(0.18f, 0.2f, 0.38f), (Hash(x, y, 180) - 0.5f) * 0.05f);
+                return Shade(new Color(0.5f, 0.38f, 0.15f), (Hash(x / 2, y / 2, 181) - 0.5f) * 0.08f);
+            }), new Color(0.05f, 0.04f, 0.02f));
+            // The figure: a coarse black robe, and a bone-white mask with hollow eyes and a stitched slit of a mouth.
+            Lit("Robe", lit, MakeTexture("robe", 16, (x, y) =>
+                Shade(new Color(0.07f, 0.065f, 0.07f), (Hash(x, y / 2, 182) - 0.5f) * 0.05f + (x % 4 == 0 ? -0.02f : 0f))));
+            Lit("Mask", lit, MakeTexture("mask", 16, 20, (x, y) =>
+            {
+                Vector2 p = new Vector2(x - 7.5f, y - 9.5f);
+                bool eye = (new Vector2(Mathf.Abs(p.x) - 3f, p.y - 2.5f)).magnitude < 1.8f;
+                bool mouth = Mathf.Abs(p.y + 5f) < 0.6f && Mathf.Abs(p.x) < 3.5f;
+                bool stitch = Mathf.Abs(p.y + 5f) < 1.6f && Mathf.Abs(p.x) < 3.5f && x % 2 == 0;
+                bool crack = Mathf.Abs(p.x - 1f - p.y * 0.4f) < 0.5f && p.y > 3f;
+                if (eye) return new Color(0.02f, 0.01f, 0.01f);
+                if (mouth || stitch || crack) return new Color(0.2f, 0.16f, 0.14f);
+                return Shade(new Color(0.82f, 0.79f, 0.7f), (Hash(x, y, 183) - 0.5f) * 0.08f - p.magnitude * 0.008f);
+            }), new Color(0.12f, 0.11f, 0.1f));
+            Lit("Pine", lit, MakeTexture("pine", 16, (x, y) =>
+                Shade(new Color(0.06f, 0.1f, 0.07f), (Hash(x, y, 184) - 0.5f) * 0.06f)));
             // Faded blue work overalls for the bodies left on the floor: they have to read against warm brick and tile.
             Lit("Coverall", lit, MakeTexture("coverall", 16, (x, y) =>
                 Shade(new Color(0.34f, 0.42f, 0.54f), (Hash(x / 2, y / 2, 171) - 0.5f) * 0.08f + (x % 8 == 0 ? -0.05f : 0f))),
@@ -689,7 +746,7 @@ namespace GJ.PSX.EditorTools
             name.StartsWith("Sign") || name.StartsWith("Note") || name == "VaultMetal" || name == "Display" || name == "Paper" ||
             name == "Calendar" || name == "Notice" || name == "Poster" || name == "Photo" || name == "ClockFace" ||
             name == "FirstAid" || name == "Hazard" || name == "Gauge" || name == "ExitGlow" || name == "TankPaint" ||
-            name == "Arms";
+            name == "Arms" || name == "Mask" || name == "StainedGlass" || name == "Banner" || name == "Icon" || name == "Carpet" || name == "Floor" || name == "Stone" || name == "Ceiling" || name == "Concrete";
 
         // A handwritten page: aged paper darkening to the edges, faint rules, lines of ink scrawl with gaps for words,
         // a fold across the middle, a coffee ring and a dog-eared corner. torn: a ragged top edge, a scrap rather than

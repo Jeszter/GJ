@@ -61,7 +61,7 @@ namespace GJ.Game
         {
             var gun = Director != null ? Director.Gun : null;
             if (benchGun != null && benchGun.activeSelf && gun != null && Aim(eye, forward, benchGunPoint.position, 1.7f) > 0.86f)
-                return new Option { prompt = "[E] take the revolver", act = TakeGun };
+                return new Option { prompt = "[E] take the revolver", act = TakeGun, gesture = Gesture.Grab };
 
             if (!_blown && !_busyValve && gasValve != null && Aim(eye, forward, gasValve.position, 1.5f) > 0.9f)
                 return new Option
@@ -77,7 +77,7 @@ namespace GJ.Game
                 float bucketAim = Aim(eye, forward, bucket.position + Vector3.up * 0.2f, 1.9f);
                 float frontAim = Aim(eye, forward, fuse.FrontWorld, 1.9f);
                 if (bucketAim > 0.8f && (fuse.Current == Fuse.State.Fizzled || bucketAim >= frontAim))
-                    return new Option { prompt = "[E] push the bucket off the powder", act = ShoveBucket };
+                    return new Option { prompt = "[E] push the bucket off the powder", act = ShoveBucket, gesture = Gesture.Push };
             }
             if (FuseInReach(eye, forward))
             {

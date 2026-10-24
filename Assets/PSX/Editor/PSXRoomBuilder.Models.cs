@@ -203,9 +203,13 @@ namespace GJ.PSX.EditorTools
             if (first) return null;
 
             Vector3 size = Vector3.Max(bounds.size, Vector3.one * 0.001f);
+            // A flat model (a sheet of cardboard) has next to no height: "height" is then its widest side, or the
+            // sheet comes out hundreds of metres across. Kept a few millimetres up so it doesn't fight the floor.
+            float across = Mathf.Max(size.x, size.z);
+            bool flat = !fit.HasValue && across * height / size.y > 3f && size.y < across * 0.05f;
             Vector3 scale = fit.HasValue ? new Vector3(fit.Value.x / size.x, fit.Value.y / size.y, fit.Value.z / size.z)
-                                         : Vector3.one * (height / size.y);
-            Vector3 origin = new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
+                                         : Vector3.one * (height / (flat ? across : size.y));
+            Vector3 origin = new Vector3(bounds.center.x, bounds.min.y - (flat ? 0.004f / scale.y : 0f), bounds.center.z);
             var v = new List<Vector3>();
             var nrm = new List<Vector3>();
             var uv = new List<Vector2>();
@@ -216,7 +220,8 @@ namespace GJ.PSX.EditorTools
             {
                 if (g.Value.Count == 0) continue;
                 var tris = new List<int>();
-                bool palette = g.Key == "KenneyPalette";
+                // A palette, or a model's own texture laid out for its own UVs: keep them; the rest get the rooms' metre projection.
+                bool palette = g.Key == "KenneyPalette" || g.Key.StartsWith("Own_");
                 foreach (var (p0, n, uv0) in g.Value)
                 {
                     Vector3 p = Vector3.Scale(p0 - origin, scale);

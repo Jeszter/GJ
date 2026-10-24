@@ -15,7 +15,10 @@ namespace GJ.Game
             public string prompt;
             public Action act;
             public bool reach;
+            public Gesture gesture;   // the hand's move for it (taking something, shoving something)
         }
+
+        public enum Gesture { None, Grab, Push }
 
         public event Action Solved;
         public event Action<string> Message;
@@ -26,6 +29,11 @@ namespace GJ.Game
 
         // How fast the air goes: gas in the room makes every breath worse.
         public virtual float AirDrain => 1f;
+
+        // Whether the revolver may be turned on yourself here (not in the corridor), and whether doing so ends the run
+        // (a title and a line for the last card) rather than being one more death the room carries on after.
+        public virtual bool AllowsSelfShot => true;
+        public virtual string[] SelfShotEnding => null;
 
         // The room has just loaded; cameFrom is the scene the player walked in from (null at the start of a run).
         public virtual void Arrived(string cameFrom) { }

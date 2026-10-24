@@ -33,6 +33,7 @@ namespace GJ.Game
         public Shootable lamp;
         public Light lampLight;
         public GameObject lampGlow;
+        public GameObject lampBulb, lampStub;  // the lit bulb, and the stub of glass left once it is shot
         public GameObject boltStream, ventStream;   // sand pouring from each bullet hole
         public Transform boltPile, ventPile;        // heaps growing on the floor under them
         public AudioSource boltPour, ventPour;
@@ -91,14 +92,14 @@ namespace GJ.Game
             if (_busy) return null;
             if (Aim(eye, forward, lockerPoint.position, 1.7f) > 0.84f)
             {
-                if (!_lockerOpen) return new Option { prompt = "[E] open the locker", act = () => StartCoroutine(OpenLocker()) };
-                if (!_taken) return new Option { prompt = revolver != null && revolver.Owned ? "[E] take the box of rounds" : "[E] take the revolver", act = TakeRevolver };
+                if (!_lockerOpen) return new Option { prompt = "[E] open the locker", act = () => StartCoroutine(OpenLocker()), gesture = Gesture.Push };
+                if (!_taken) return new Option { prompt = revolver != null && revolver.Owned ? "[E] take the box of rounds" : "[E] take the revolver", act = TakeRevolver, gesture = Gesture.Grab };
             }
             if (crowbar != null && crowbar.activeSelf && Aim(eye, forward, crowbarPoint.position, 1.8f) > 0.86f)
             {
                 if (crowbarCage != null && !crowbarCage.IsOpen)
                     return new Option { prompt = "the cage is shut. something has to hold the plate down" };
-                return new Option { prompt = "[E] take the crowbar", act = TakeCrowbar };
+                return new Option { prompt = "[E] take the crowbar", act = TakeCrowbar, gesture = Gesture.Grab };
             }
 
             // Up at the hopper itself: burn its rope, or pry its gate (either hopper: the hint shouldn't say which).
@@ -190,6 +191,8 @@ namespace GJ.Game
             Play(glassClip, 1f, lampLight.transform.position);
             lampLight.enabled = false;
             if (lampGlow != null) lampGlow.SetActive(false);
+            if (lampBulb != null) lampBulb.SetActive(false);
+            if (lampStub != null) lampStub.SetActive(true);
         }
 
         void Update()

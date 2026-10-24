@@ -29,6 +29,7 @@ namespace GJ.Game
         bool _leaving;
 
         public override bool Working => false;
+        public override bool AllowsSelfShot => false;
 
         static bool Done(RoomDoor d) => GameSession.Cleared.Contains(d.scene);
         static bool Built(RoomDoor d) => Application.CanStreamedLevelBeLoaded(d.scene);
@@ -99,7 +100,7 @@ namespace GJ.Game
             if (!Built(best)) return new Option { prompt = best.title + "  -  sealed" };
             if (!GameSession.HasLighter) return new Option { prompt = best.title + "  -  pitch dark in there. find your lighter first" };
             var door = best;
-            return new Option { prompt = "[E] go in:  " + door.title, act = () => Enter(door) };
+            return new Option { prompt = "[E] go in:  " + door.title, act = () => Enter(door), gesture = Gesture.Push };
         }
 
         void PickUpLighter()

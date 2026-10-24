@@ -102,7 +102,7 @@ namespace GJ.Game
                     ? new Option { prompt = "[E] leave the lighter burning under the pot", reach = true, act = LeaveLighter }
                     : new Option { prompt = "[F] open the lighter" });
             else if (_lighterHere)
-                Consider(burnerPoint.position, 1.7f, new Option { prompt = "[E] take the lighter back", act = TakeLighter });
+                Consider(burnerPoint.position, 1.7f, new Option { prompt = "[E] take the lighter back", act = TakeLighter, gesture = Gesture.Grab });
 
             Consider(tankTap.position, 1.6f, new Option
             {
@@ -114,7 +114,8 @@ namespace GJ.Game
                 Consider(socketPoint.position, 1.6f, new Option
                 {
                     prompt = _plugged ? "[E] pull the plug" : "[E] plug the cut line in",
-                    act = TogglePlug
+                    act = TogglePlug,
+                    gesture = Gesture.Grab
                 });
                 if (!_dropped)
                     Consider(liveEnd.position, 2.0f,

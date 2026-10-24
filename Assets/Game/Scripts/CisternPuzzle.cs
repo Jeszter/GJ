@@ -145,13 +145,15 @@ namespace GJ.Game
                 Consider(chuteTip.position, 1.9f, new Option
                 {
                     prompt = "[E] swing the chute",
-                    act = () => StartCoroutine(SwingChute())
+                    act = () => StartCoroutine(SwingChute()),
+                    gesture = Gesture.Push
                 });
             if (!_hooked)
                 Consider(hookPoint.position, 1.6f, new Option
                 {
                     prompt = "[E] hook the chain onto the bolt",
-                    act = Hook
+                    act = Hook,
+                    gesture = Gesture.Grab
                 });
             if (!_solved && Director != null)
             {

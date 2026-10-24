@@ -11,8 +11,8 @@ namespace GJ.PSX.EditorTools
     // that shouldn't be, and surfaces with no texture. Writes Logs/audit.txt.
     public static class SceneAudit
     {
-        static readonly string[] Scenes = { "Assets/Scenes/Hub.unity", "Assets/Scenes/Room01.unity", "Assets/Scenes/Room02.unity", "Assets/Scenes/Room03.unity", "Assets/Scenes/Room04.unity" };
-        static readonly string[] Groups = { "Props", "Details", "Dressing", "Kenney", "Pipes", "Cistern", "Armory", "Boiler", "Corridor" };
+        static readonly string[] Scenes = { "Assets/Scenes/Hub.unity", "Assets/Scenes/Room01.unity", "Assets/Scenes/Room02.unity", "Assets/Scenes/Room03.unity", "Assets/Scenes/Room04.unity", "Assets/Scenes/Chapel.unity", "Assets/Scenes/Graveyard.unity" };
+        static readonly string[] Groups = { "Props", "Details", "Dressing", "Kenney", "Pipes", "Cistern", "Armory", "Boiler", "Corridor", "Nave", "Yard" };
 
         // Props meant to lean or lie on their side, and things meant to hang from the ceiling or sit on a wall.
         static readonly string[] Tilted = { "Chair", "chair", "tool-", "Helmet", "Bottle", "bottle", "Sack", "Tin", "Lid", "Rubble", "Mop", "Crowbar", "Chute", "Trough" };
@@ -45,7 +45,10 @@ namespace GJ.PSX.EditorTools
                 string rootName = System.IO.Path.GetFileNameWithoutExtension(path);
                 var world = System.Array.Find(scene.GetRootGameObjects(), g => g.name == rootName)?.transform;
                 if (world == null) continue;
-                var floor = world.Find("Shell/Floor").GetComponent<Renderer>().bounds;
+                // Indoors the shell's floor; out in the graveyard the ground.
+                var floorT = world.Find("Shell/Floor") ?? world.Find("Yard/Ground");
+                if (floorT == null) continue;
+                var floor = floorT.GetComponent<Renderer>().bounds;
                 foreach (var g in Groups)
                 {
                     var group = world.Find(g);

@@ -322,7 +322,10 @@ namespace GJ.PSX.EditorTools
             lamp.localPosition = new Vector3(0.3f, ceil, 3.8f);
             Block("Cord", "DarkMetal", new Vector3(0, -0.3f, 0), new Vector3(0.02f, 0.6f, 0.02f), default, 1f, lamp);
             Cyl("Shade", "DarkMetal", new Vector3(0, -0.7f, 0), 0.24f, 0.1f, 8, default, 1f, lamp);
-            Block("Bulb", "Bulb", new Vector3(0, -0.76f, 0), new Vector3(0.09f, 0.11f, 0.09f), default, 1f, lamp);
+            var lampBulb = Block("Bulb", "Bulb", new Vector3(0, -0.76f, 0), new Vector3(0.09f, 0.11f, 0.09f), default, 1f, lamp);
+            // What is left once a round goes through it: the dark socket and a jagged stub of glass.
+            var lampStub = Block("BulbStub", "Glass", new Vector3(0, -0.73f, 0), new Vector3(0.06f, 0.05f, 0.06f), new Vector3(0, 30, 0), 1f, lamp);
+            lampStub.SetActive(false);
             var lampHalo = new MeshBuilder();
             lampHalo.Cross(Vector3.zero, 0.7f, 0.7f);
             var lampGlow = Place("BulbHalo", lampHalo, "Halo", new Vector3(0, -1.1f, 0), default, lamp);
@@ -368,6 +371,8 @@ namespace GJ.PSX.EditorTools
             puzzle.lamp = lamp.gameObject.AddComponent<Game.Shootable>();
             puzzle.lampLight = lampLight;
             puzzle.lampGlow = lampGlow;
+            puzzle.lampBulb = lampBulb;
+            puzzle.lampStub = lampStub;
             puzzle.boltStream = boltStream.gameObject;
             puzzle.ventStream = ventStream.gameObject;
             puzzle.boltPile = boltPile;

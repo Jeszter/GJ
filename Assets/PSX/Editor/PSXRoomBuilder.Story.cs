@@ -261,6 +261,7 @@ namespace GJ.PSX.EditorTools
                 Model("Survival/barrel", new Vector3(2.9f, 0f, 2.2f), 0f, 0.85f, s);
                 // You, from behind, a lighter low in your right hand.
                 var miner = Model("../LOWHO/Zombie", new Vector3(0.45f, 0f, 1.2f), 188f, 1.72f, s, 0f, null, null, PoseStanding, true);
+                AsMiner(miner);
                 HardHat(miner.transform, 1.72f);
                 SetFlame(s, new Vector3(0.78f, 0.95f, 1.35f), 0.07f, 3f, 1.2f);
                 SetLight(s, new Vector3(0f, 2.5f, -1.5f), new Color(0.45f, 0.55f, 0.85f), 7f, 0.7f);
@@ -330,6 +331,7 @@ namespace GJ.PSX.EditorTools
                 // You, where the air ran out; the lighter by your hand; the fire crawling on.
                 // Lying on its back: the model's +Z (its front) turned to the ceiling, head toward the room.
                 var body = Model("../LOWHO/Zombie", new Vector3(-1.75f, 0.14f, 0.55f), -70f, 1.72f, s, -90f, null, null, PoseFallen, true);
+                AsMiner(body);
                 HardHat(body.transform, 1.72f);
                 Cyl("DroppedLighter", "Chrome", new Vector3(-1.05f, 0.02f, 0.05f), 0.03f, 0.05f, 6, new Vector3(0, 0, 90), 6f, s);
                 var path = Smooth(new[] { new Vector3(-1.0f, 0.012f, 0.1f), new Vector3(-0.2f, 0.012f, 0.4f), new Vector3(0.2f, 0.012f, 1.6f), new Vector3(0.9f, 0.012f, 2.7f), new Vector3(1.3f, 0.012f, 4.6f) }, 6);

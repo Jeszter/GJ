@@ -71,6 +71,8 @@ namespace GJ.Game
 
         // The lighter: not in hand at the start of a run, it lies in the corridor to be found.
         public static bool HasLighter;
+        // The revolver knocked out of your hand at the chapel door: it lies in the graveyard grass with these rounds.
+        public static bool GunInGraveyard;
 
         // Rooms walked out of, by scene name: the corridor shows them done and opens the way out once every one is.
         public static readonly System.Collections.Generic.HashSet<string> Cleared = new System.Collections.Generic.HashSet<string>();
@@ -124,6 +126,7 @@ namespace GJ.Game
             Cleared.Clear();
             JustCleared = null;
             HasLighter = false;
+            GunInGraveyard = false;
         }
     }
 }

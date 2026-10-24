@@ -360,15 +360,20 @@ namespace GJ.Game
                 LoadScene(nextScene);
                 return;
             }
+            ShowEnding("SECTOR 4  -  YOU GOT OUT", "the last door is open.\nthank you for playing.");
+        }
+
+        // The last card, with the run's numbers: out through the chapel, or not.
+        public void ShowEnding(string title, string line)
+        {
             _state = State.End;
             SetPlayActive(false);
             controller.enabled = false;
             _black.color = Color.black;
             int s = Mathf.FloorToInt(GameSession.Time);
-            _endText.text = "SECTOR 4  -  YOU GOT OUT\n\n" +
+            _endText.text = title + "\n\n" +
                             $"deaths     {GameSession.Deaths}\n" +
-                            $"time       {s / 60:00}:{s % 60:00}\n\n" +
-                            "the last door is open.\nthank you for playing.";
+                            $"time       {s / 60:00}:{s % 60:00}\n\n" + line;
             _endText.gameObject.SetActive(true);
             Snow(0.8f);
             Open(_endMenu);

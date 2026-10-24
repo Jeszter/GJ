@@ -44,6 +44,9 @@ namespace GJ.Game
         float _thumbLift;      // 0..1 thumb up off the lighter, to flick the lid
         float _thumbPress;     // 0..1 thumb rolled down hard on the wheel
         float _tap, _nextTap = 3f;   // the index finger lifting off the case and dropping back, every few seconds
+        float _thrust;         // 0..1+ hand driven forward (grabbing, pushing, punching)
+        float _open;           // 0..1 fingers spread off the case (grabbing, pushing)
+        float _palm;           // 0..1 wrist tipped back, palm out (pushing)
         Coroutine _act;
         System.Action _finishAct;  // lands the running act at once if it gets cut short
 
@@ -81,6 +84,7 @@ namespace GJ.Game
             _squeeze = 0f;
             _thumbLift = 0f;
             _thumbPress = 0f;
+            _thrust = _open = _palm = 0f;
         }
 
         // Start dark (lid shut, no flame), then light up on our own.
@@ -214,6 +218,69 @@ namespace GJ.Game
             _act = null;
         }
 
+        // Out and take it: the hand goes forward with the fingers spread, closes on the thing and comes back.
+        public void Grab()
+        {
+            if (_act != null) return;
+            _act = StartCoroutine(Move(0.16f, 0.1f, 0.22f, 1f, 1f, 0f, true));
+        }
+
+        // Palm out against a door or a weight and shove.
+        public void Push()
+        {
+            if (_act != null) return;
+            _act = StartCoroutine(Move(0.2f, 0.12f, 0.3f, 1.1f, 0.8f, 1f, false));
+        }
+
+        // A short punch with the lighter balled in the fist.
+        public void Jab()
+        {
+            if (_act != null) return;
+            _act = StartCoroutine(Move(0.06f, 0.04f, 0.16f, 1.5f, 0f, 0f, false));
+        }
+
+        public bool Busy => _act != null;
+
+        // The lighter put away and the fingers open: a bare hand (for when something takes it by the wrist).
+        public void Empty(bool empty)
+        {
+            if (lid != null) lid.parent.gameObject.SetActive(!empty);
+            _open = empty ? 0.8f : 0f;
+        }
+
+        // Out for "outT" seconds (reaching thrust, opening the fingers by open and tipping the palm by palm), hold for
+        // "holdT" (closing them if close), back for "backT".
+        IEnumerator Move(float outT, float holdT, float backT, float thrust, float open, float palm, bool close)
+        {
+            _finishAct = null;
+            for (float t = 0f; t < outT; t += Time.deltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / outT);
+                _thrust = thrust * k;
+                _open = open * k;
+                _palm = palm * k;
+                _squeeze = open <= 0f ? k : 0f;
+                yield return null;
+            }
+            for (float t = 0f; t < holdT; t += Time.deltaTime)
+            {
+                if (close) { _open = open * (1f - t / holdT); _squeeze = t / holdT; }
+                yield return null;
+            }
+            float t0 = _thrust, o0 = _open, p0 = _palm, s0 = _squeeze;
+            for (float t = 0f; t < backT; t += Time.deltaTime)
+            {
+                float k = 1f - Mathf.SmoothStep(0f, 1f, t / backT);
+                _thrust = t0 * k;
+                _open = o0 * k;
+                _palm = p0 * k;
+                _squeeze = s0 * k;
+                yield return null;
+            }
+            _thrust = _open = _palm = _squeeze = 0f;
+            _act = null;
+        }
+
         void LateUpdate()
         {
             float dt = Time.deltaTime;
@@ -240,10 +307,12 @@ namespace GJ.Game
             Vector3 reach = new Vector3(-0.05f, -0.07f, 0.09f) * _reach;
             _lower = Mathf.MoveTowards(_lower, Lowered ? 1f : 0f, dt * 4f);
             reach += new Vector3(0.04f, -0.3f, 0f) * Mathf.SmoothStep(0f, 1f, _lower);
+            // Grabbing, pushing, punching: forward and in toward the middle of the view.
+            reach += new Vector3(-0.045f, 0.03f, 0.13f) * _thrust;
 
             transform.localPosition = _restPos + new Vector3(_swayNow.x, _swayNow.y + breath, 0f) + bobOffset + shake + reach;
             transform.localRotation = _restRot
-                * Quaternion.Euler(-_swayNow.y * 400f + _reach * 28f, _swayNow.x * 400f, -_swayNow.x * 300f + _reach * -10f);
+                * Quaternion.Euler(-_swayNow.y * 400f + _reach * 28f - _palm * 35f, _swayNow.x * 400f - _thrust * 8f, -_swayNow.x * 300f + _reach * -10f);
 
             AnimateFingers(dt);
         }
@@ -270,7 +339,8 @@ namespace GJ.Game
                 float shake = Tremble > 0f ? -Mathf.PerlinNoise(now * 15f + finger * 2.1f, joint * 4.3f) * 14f * Tremble : 0f;
                 float grip = _squeeze * (joint == 0 ? 2f : 1f);
                 float tap = finger == 0 && joint < 2 ? -tapLift : 0f;
-                fingers[i].localRotation = _fingerRest[i] * Quaternion.Euler(wander + shake + grip + tap, 0f, 0f);
+                float spread = -_open * (joint == 0 ? 35f : 25f);
+                fingers[i].localRotation = _fingerRest[i] * Quaternion.Euler(wander + shake + grip + tap + spread, 0f, 0f);
             }
 
             if (_thumbRest.Length == 3)

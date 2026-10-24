@@ -27,10 +27,16 @@ namespace GJ.Game
         public bool Owned { get; private set; }
         public bool Drawn { get; private set; }
 
+        // X with the revolver out turns it on yourself, where the room allows it; a round fired like that is the
+        // owner's business (ShotSelf), not a ray into the room.
+        public System.Func<bool> canAimAtSelf;
+        public event System.Action ShotSelf;
+        public bool AtHead { get; private set; }
+
         Vector3 _rest;
-        float _raise, _kick, _pull;
+        float _raise, _kick, _pull, _head;
         Quaternion[] _triggerRest;
-        Text _ammo;
+        Text _ammo, _hint;
         Image _dot;
         bool _busy;
 
@@ -70,10 +76,21 @@ namespace GJ.Game
 
         public void Holster() => Draw(false);
 
+        // Knocked out of the hand: gone, rounds and all, until it is picked up again.
+        public void TakeAway()
+        {
+            Draw(false);
+            Owned = false;
+            AtHead = false;
+            viewModel.gameObject.SetActive(false);
+            GameSession.HasRevolver = false;
+        }
+
         void Draw(bool on)
         {
             if (!Owned || Drawn == on) return;
             Drawn = on;
+            AtHead = false;
             if (on)
             {
                 if (lighterHand != null && lighterHand.Lit) lighterHand.Toggle();
@@ -92,12 +109,20 @@ namespace GJ.Game
             for (int i = 0; i < _triggerRest.Length; i++)
                 trigger[i].localRotation = _triggerRest[i] * Quaternion.Euler(_pull * (i == 0 ? 18f : 28f), 0f, 0f);
             float r = Mathf.SmoothStep(0f, 1f, _raise);
-            viewModel.localPosition = _rest + Vector3.down * 0.3f * (1f - r) + new Vector3(0f, 0.015f, -0.05f) * _kick;
-            viewModel.localRotation = Quaternion.Euler(-25f * _kick, 0f, 0f);
+            // To the head: the hand comes up and round until the muzzle is at the right temple, shaking a little.
+            _head = Mathf.MoveTowards(_head, AtHead ? 1f : 0f, Time.deltaTime * 2.5f);
+            float h = Mathf.SmoothStep(0f, 1f, _head);
+            Vector3 shake = new Vector3(Mathf.PerlinNoise(Time.time * 9f, 0f) - 0.5f, Mathf.PerlinNoise(0f, Time.time * 9f) - 0.5f, 0f) * 0.006f * h;
+            viewModel.localPosition = _rest + Vector3.down * 0.3f * (1f - r) + new Vector3(0f, 0.015f, -0.05f) * _kick
+                                      + (HeadPose - _rest) * h + shake;
+            viewModel.localRotation = Quaternion.Euler(-25f * _kick, 0f, 0f) * Quaternion.Euler(-35f * h, -55f * h, 25f * h);
             if (_raise <= 0f && !Drawn && viewModel.gameObject.activeSelf) viewModel.gameObject.SetActive(false);
             _ammo.text = Owned && Drawn ? new string('|', rounds) + new string('.', Mathf.Max(0, 6 - rounds)) : "";
             // The round goes where the eye looks, not where the barrel seems to point: show where that is.
-            _dot.enabled = Owned && Drawn && _raise > 0.95f;
+            _dot.enabled = Owned && Drawn && _raise > 0.95f && _head <= 0f;
+            bool canTurn = Owned && Drawn && canAimAtSelf != null && canAimAtSelf();
+            if (!canTurn) AtHead = false;
+            _hint.text = !canTurn ? "" : AtHead ? "[LMB] pull the trigger   [X] lower it" : "[X] to your head";
 
             // Not while dead or in a menu (the lighter hand is switched off then too).
             if (!Owned || FirstPersonController.Frozen || (lighterHand != null && !lighterHand.enabled)) return;
@@ -105,9 +130,13 @@ namespace GJ.Game
             var mouse = Mouse.current;
             if (kb != null && (kb.qKey.wasPressedThisFrame || kb.digit2Key.wasPressedThisFrame)) Draw(!Drawn);
             if (kb != null && kb.digit1Key.wasPressedThisFrame && Drawn) Draw(false);
-            if (Drawn && _raise > 0.95f && !_busy && mouse != null && mouse.leftButton.wasPressedThisFrame && Cursor.lockState == CursorLockMode.Locked)
+            if (kb != null && kb.xKey.wasPressedThisFrame && canTurn && !_busy) AtHead = !AtHead;
+            if (Drawn && _raise > 0.95f && !_busy && mouse != null && mouse.leftButton.wasPressedThisFrame && Cursor.lockState == CursorLockMode.Locked
+                && (!AtHead || _head >= 1f))
                 StartCoroutine(Fire());
         }
+
+        static readonly Vector3 HeadPose = new Vector3(0.2f, -0.02f, 0.3f);
 
         IEnumerator Fire()
         {
@@ -123,6 +152,17 @@ namespace GJ.Game
             rounds--;
             GameSession.Rounds = rounds;
             if (audioSource != null && shotClip != null) audioSource.PlayOneShot(shotClip, 1f);
+            if (AtHead)
+            {
+                AtHead = false;
+                _head = 0f;
+                Drawn = false;
+                if (lighterHand != null) lighterHand.Lowered = false;
+                viewModel.gameObject.SetActive(false);
+                _busy = false;
+                ShotSelf?.Invoke();
+                yield break;
+            }
             _kick = 1f;
             muzzleFlash.SetActive(true);
             muzzleLight.enabled = true;
@@ -177,6 +217,12 @@ namespace GJ.Game
             rt.sizeDelta = new Vector2(120f, 30f);
             var shadow = _ammo.gameObject.AddComponent<Shadow>();
             shadow.effectColor = new Color(0, 0, 0, 0.8f);
+            _hint = Object.Instantiate(_ammo, canvasGo.transform);
+            _hint.name = "Hint";
+            _hint.fontSize = 9;
+            _hint.text = "";
+            _hint.rectTransform.anchoredPosition = new Vector2(-12f, 30f);
+            _hint.rectTransform.sizeDelta = new Vector2(240f, 20f);
 
             // A two-pixel aiming dot in the middle of the screen, with a dark edge so it shows on a lit wall too.
             _dot = new GameObject("Aim").AddComponent<Image>();

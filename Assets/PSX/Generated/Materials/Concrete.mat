@@ -29,7 +29,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Affine: 0.25
+    - _Affine: 0
     - _Ambient: 1
     - _DepthOffset: 0
     - _SnapResolution: 180
