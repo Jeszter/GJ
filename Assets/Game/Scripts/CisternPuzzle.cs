@@ -8,8 +8,15 @@ namespace GJ.Game
     // a valve, down a swinging chute that points at the floor drain to begin with; the chain has slipped off its hook.
     // The cistern only holds so much and pours slower than you can hold your breath, so the order matters:
     // hook the chain, swing the chute over the bucket, then open the valve, and let the room finish without you.
+    // Two other ways: a round through the rusted hasp lets the bolt go at once (loud, and a round you won't get back),
+    // or hang your own weight on the bucket. It sinks, but slower than you can hold on breathing: you have to still be
+    // hanging there when you stop.
     public class CisternPuzzle : RoomPuzzle
     {
+        public Shootable hasp;
+        public GameObject haspPiece;
+        public AudioClip snapClip;
+        public float hangSeconds = 110f;   // hanging on it this long brings the bucket all the way down
         public Transform valveWheel;      // spins about its local Y while turning
         public Transform chute;           // swings about its local Y between the two yaws below
         public float drainYaw = -67f;
@@ -37,24 +44,26 @@ namespace GJ.Game
         public float fillSeconds = 80f;    // pouring this long into the bucket is enough to pull the bolt
 
         bool _valveOpen, _onBucket, _hooked, _solved, _busyValve, _busyChute;
-        float _tank, _fill, _wasted;
+        bool _hanging, _haspShot;
+        float _tank, _fill, _wasted, _hang;
+        Vector3 _hangSpot, _headRest;
         bool _saidDrain, _saidFilling, _saidFull, _saidEmpty, _saidShort;
         Vector3 _weightTop, _boltRest;
         float _chainBase, _hookBase;
 
         bool Flowing => _valveOpen && _tank > 0f;
-        bool Full => _fill >= fillSeconds;
+        bool Full => _fill >= fillSeconds || _hang >= 1f;
         bool IntoBucket => Flowing && _onBucket && !_busyChute;
 
-        // Still worth waiting for: water is going into the bucket, the bucket will pull the bolt, and there is enough
-        // left in the cistern to finish the job.
-        public override bool Working => !_solved && IntoBucket && _hooked && EnoughLeft;
+        // Still worth waiting for: the bucket is going down (filling, or with you hanging on it) and will pull the bolt.
+        public override bool Working => !_solved && _hooked && ((IntoBucket && EnoughLeft) || _hanging);
 
         public override Vector3? Focus => Working ? counterweight.position + Vector3.up * 0.3f : (Vector3?)null;
 
         // The first thing in the way, in the order the water has to go: out of the valve, down the chute, enough of it.
         public override string FailReason =>
             _solved ? null :
+            _hanging && !_hooked ? "you hung on the bucket, but the chain was not on the bolt" :
             !_valveOpen && _tank > 0f ? "the valve was shut" :
             !_onBucket ? "the water was running into the drain" :
             !EnoughLeft ? "there wasn't enough water left in the cistern" :
@@ -73,7 +82,45 @@ namespace GJ.Game
             looseChain.SetActive(true);
             hookedChain.gameObject.SetActive(false);
             if (flowSource != null) flowSource.volume = 0f;
+            if (hasp != null) hasp.Shot += _ => SnapHasp();
             UpdateVisuals();
+        }
+
+        // A round through the rusted hasp: it snaps, the bolt drops free and the door swings.
+        void SnapHasp()
+        {
+            if (_solved || _haspShot) return;
+            _haspShot = true;
+            _solved = true;
+            if (haspPiece != null) haspPiece.SetActive(false);
+            Play(snapClip, 1f, hasp.transform.position);
+            Say("the hasp snaps. the bolt drops free");
+            RaiseSolved();
+        }
+
+        // Grab the bail and lift your feet: the bucket starts to give, a hand's width at a time.
+        void Hang()
+        {
+            var body = Director.Controller.transform;
+            _hanging = true;
+            _headRest = Director.Head.localPosition;
+            Vector3 away = body.position - counterweight.position;
+            away.y = 0f;
+            if (away.sqrMagnitude < 0.01f) away = Vector3.back;
+            _hangSpot = new Vector3(counterweight.position.x, body.position.y, counterweight.position.z) + away.normalized * 0.42f;
+            body.position = _hangSpot;
+            Director.Controller.canMove = false;
+            Play(chainClip, 0.9f, counterweight.position);
+            Say(_hooked ? "the bucket gives under you. slowly.\ntoo slowly to wait it out breathing"
+                        : "the bucket gives under you.\nbut the chain is not on the bolt");
+        }
+
+        void LetGo()
+        {
+            _hanging = false;
+            Director.Controller.canMove = true;
+            Director.Head.localPosition = _headRest;
+            Play(clunkClip, 0.6f, counterweight.position);
         }
 
         public override Option? Look(Vector3 eye, Vector3 forward, bool lit)
@@ -106,6 +153,19 @@ namespace GJ.Game
                     prompt = "[E] hook the chain onto the bolt",
                     act = Hook
                 });
+            if (!_solved && Director != null)
+            {
+                if (_hanging) return new Option { prompt = "[E] let go", act = LetGo };
+                Consider(counterweight.position + Vector3.down * 0.3f, 1.5f, new Option
+                {
+                    prompt = "[E] hang your weight on the bucket",
+                    act = Hang
+                });
+            }
+            var gun = Director != null ? Director.Gun : null;
+            if (best == null && !_solved && hasp != null && gun != null && gun.Owned && !gun.Drawn && gun.rounds > 0 &&
+                Aim(eye, forward, hasp.transform.position, 6f) > 0.985f)
+                return new Option { prompt = "[Q] draw the revolver" };
             return best;
         }
 
@@ -153,6 +213,17 @@ namespace GJ.Game
 
         void Update()
         {
+            // Hanging: the bucket sinks under you; let go and it rides back up.
+            if (_hanging) _hang = Mathf.Min(1f, _hang + Time.deltaTime / hangSeconds);
+            else if (_hang > 0f && !_solved) _hang = Mathf.Max(0f, _hang - Time.deltaTime / 4f);
+            if (_hanging && Director != null && Director.Alive)
+            {
+                // Knees up off the floor, the body going down with the bucket.
+                float drop = 0.35f + sinkDistance * Smooth(_hang) * 0.6f;
+                Director.Head.localPosition = _headRest + Vector3.down * drop;
+                Director.Controller.transform.position = _hangSpot;
+            }
+
             if (Flowing)
             {
                 _tank = Mathf.Max(0f, _tank - Time.deltaTime);
@@ -177,10 +248,13 @@ namespace GJ.Game
             UpdateVisuals();
         }
 
+        static float Smooth(float t) => t * t * (3f - 2f * t);
+
         void UpdateVisuals()
         {
             float fill = Mathf.Clamp01(_fill / fillSeconds);
-            float sink = fill * fill * (3f - 2f * fill);
+            // Water or a body: whichever is pulling harder sets how far the bucket has gone down.
+            float sink = Mathf.Max(Smooth(fill), Smooth(_hang));
             counterweight.localPosition = _weightTop + Vector3.down * sinkDistance * sink;
             bucketWater.localPosition = new Vector3(0f, Mathf.Lerp(waterLow, waterHigh, fill), 0f);
             bucketWater.gameObject.SetActive(_fill > 0.05f);

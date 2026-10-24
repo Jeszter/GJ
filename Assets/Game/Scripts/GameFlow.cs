@@ -17,7 +17,7 @@ namespace GJ.Game
         enum State { Title, Intro, Playing, Paused, End }
 
         const string MenuScene = "MainMenu";
-        const string FirstRoom = "Room01";
+        const string FirstScene = "Hub";   // the Sector 4 corridor, a door to every room
 
         public RoomDirector director;      // none in the main menu
         public StoryStage stage;           // 3D sets filmed for the story cards; the painted plates are the fallback
@@ -25,7 +25,7 @@ namespace GJ.Game
         public Transform head;
         public GameObject hand;
         public int room = 1;
-        public string nextScene;            // scene to go on to once this room is cleared; empty for the last one
+        public string nextScene;            // where walking out leads: the corridor from a room; empty for the corridor's way out
         public Vector3[] shotPositions;
         public Vector3[] shotAngles;
         public AudioClip humClip;
@@ -41,7 +41,7 @@ namespace GJ.Game
             "1987.",
             "Beneath an old coal mine lies a bunker\nthat no map remembers.\n\nSector 4.",
             "You were sent down to clear\nthe last of the old charges.\n\nThe vault door sealed behind you.",
-            "Ninety seconds of air.\nA lighter.\nA trail of powder.",
+            "Four breaths of air.\nA lighter.\nA trail of powder.",
             "In Sector 4, dying is not the end.\n\nDying for nothing is."
         };
 
@@ -71,12 +71,12 @@ namespace GJ.Game
         RawImage _art;
         Image[] _dots;
         IntroArt _introArt;
-        PsxMenu _titleMenu, _pauseMenu, _settingsMenu, _endMenu, _nextMenu;
+        PsxMenu _titleMenu, _pauseMenu, _settingsMenu, _endMenu;
         PsxMenu _activeMenu;
         Coroutine _shots;
         AudioSource _titleMusic, _roomMusic;
 
-        bool IsLastRoom => string.IsNullOrEmpty(nextScene) || !Application.CanStreamedLevelBeLoaded(nextScene);
+        public bool IsLastRoom => string.IsNullOrEmpty(nextScene) || !Application.CanStreamedLevelBeLoaded(nextScene);
 
         void Awake()
         {
@@ -168,7 +168,7 @@ namespace GJ.Game
             if (director != null) director.enabled = on;
             if (controller != null) controller.enabled = on;
             FirstPersonController.Frozen = !on;
-            if (hand != null) hand.SetActive(on);
+            if (hand != null) hand.SetActive(on && (director == null || director.HandVisible));
             Cursor.lockState = on ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !on;
         }
@@ -229,9 +229,9 @@ namespace GJ.Game
             _story.text = "";
             _hint.text = "";
             Snow(1f);
-            // On into the first room, which opens on the TV and dives in through the glass.
+            // On into the corridor, which opens on the TV and dives in through the glass.
             GameSession.FromStory = true;
-            LoadScene(FirstRoom);
+            LoadScene(FirstScene);
         }
 
         // Types one card out, holds it a moment and moves on by itself; a key finishes the typing or moves on sooner.
@@ -350,28 +350,48 @@ namespace GJ.Game
 
         public void OnRoomCleared()
         {
+            // Out through a room's door and back into the corridor, which marks it done; the card with the run's
+            // numbers waits for the way out at the corridor's end.
+            if (!IsLastRoom)
+            {
+                string cleared = SceneManager.GetActiveScene().name;
+                GameSession.Cleared.Add(cleared);
+                GameSession.JustCleared = cleared;
+                LoadScene(nextScene);
+                return;
+            }
             _state = State.End;
             SetPlayActive(false);
             controller.enabled = false;
             _black.color = Color.black;
             int s = Mathf.FloorToInt(GameSession.Time);
-            bool last = IsLastRoom;
-            _endText.text = (last ? "SECTOR 4  -  YOU GOT OUT" : $"SECTOR 4  -  ROOM {room} CLEARED") + "\n\n" +
+            _endText.text = "SECTOR 4  -  YOU GOT OUT\n\n" +
                             $"deaths     {GameSession.Deaths}\n" +
                             $"time       {s / 60:00}:{s % 60:00}\n\n" +
-                            (last ? "the last door is open.\nthank you for playing." : Ahead(room));
+                            "the last door is open.\nthank you for playing.";
             _endText.gameObject.SetActive(true);
             Snow(0.8f);
-            Open(last ? _endMenu : _nextMenu);
+            Open(_endMenu);
         }
 
-        // A hint of what waits behind the next door, after each room but the last.
-        static string Ahead(int room) => room switch
+        // Through one of the corridor's doors: a short walk into the dark, then the room.
+        public void EnterRoom(string scene)
         {
-            1 => "somewhere ahead, water is running.",
-            2 => "beyond the next door: gun oil and sand.",
-            _ => "the corridor goes on into the dark."
-        };
+            if (_state != State.Playing) return;
+            StartCoroutine(EnterRoutine(scene));
+        }
+
+        IEnumerator EnterRoutine(string scene)
+        {
+            controller.enabled = false;
+            for (float t = 0f; t < 0.7f; t += Step)
+            {
+                _black.color = new Color(0, 0, 0, t / 0.7f);
+                yield return null;
+            }
+            _black.color = Color.black;
+            LoadScene(scene);
+        }
 
         static void LoadScene(string scene)
         {
@@ -381,7 +401,11 @@ namespace GJ.Game
             SceneManager.LoadScene(scene);
         }
 
-        static void RestartRoom() => LoadScene(SceneManager.GetActiveScene().name);
+        void RestartRoom()
+        {
+            if (director != null) director.LeaveBody();
+            LoadScene(SceneManager.GetActiveScene().name);
+        }
 
         static void MainMenu()
         {
@@ -420,7 +444,7 @@ namespace GJ.Game
 
         void Open(PsxMenu menu)
         {
-            foreach (var m in new[] { _titleMenu, _pauseMenu, _settingsMenu, _endMenu, _nextMenu }) m?.Show(m == menu);
+            foreach (var m in new[] { _titleMenu, _pauseMenu, _settingsMenu, _endMenu }) m?.Show(m == menu);
             _activeMenu = menu;
         }
 
@@ -664,12 +688,8 @@ namespace GJ.Game
             _settingsMenu.AddOption("FULLSCREEN", () => GameSettings.Fullscreen ? "ON" : "OFF", d => { GameSettings.Fullscreen = !GameSettings.Fullscreen; GameSettings.Apply(); });
             _settingsMenu.Add("BACK", CloseSettings);
 
-            _nextMenu = new PsxMenu(root, cam, _font, new Vector2(0, -62), 12, 17, _ui, moveClip, pickClip);
-            _nextMenu.Add("NEXT ROOM", () => LoadScene(nextScene));
-            _nextMenu.Add("MAIN MENU", MainMenu);
-
             _endMenu = new PsxMenu(root, cam, _font, new Vector2(0, -62), 12, 17, _ui, moveClip, pickClip);
-            _endMenu.Add("PLAY AGAIN", () => { GameSession.Reset(); LoadScene(FirstRoom); });
+            _endMenu.Add("PLAY AGAIN", () => { GameSession.Reset(); LoadScene(FirstScene); });
             _endMenu.Add("MAIN MENU", MainMenu);
 
             Open(null);

@@ -12,7 +12,8 @@ namespace GJ.Game
         public AudioClip sparkClip;
         public Vector2 interval = new Vector2(3f, 9f);
 
-        void Start()
+        // Restarted every time it is switched on (a line plugged in again).
+        void OnEnable()
         {
             flash.SetActive(false);
             sparkLight.enabled = false;

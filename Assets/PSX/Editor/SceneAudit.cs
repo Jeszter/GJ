@@ -11,15 +11,17 @@ namespace GJ.PSX.EditorTools
     // that shouldn't be, and surfaces with no texture. Writes Logs/audit.txt.
     public static class SceneAudit
     {
-        static readonly string[] Scenes = { "Assets/Scenes/Room01.unity", "Assets/Scenes/Room02.unity", "Assets/Scenes/Room03.unity" };
-        static readonly string[] Groups = { "Props", "Details", "Dressing", "Kenney", "Pipes", "Cistern", "Armory" };
+        static readonly string[] Scenes = { "Assets/Scenes/Hub.unity", "Assets/Scenes/Room01.unity", "Assets/Scenes/Room02.unity", "Assets/Scenes/Room03.unity", "Assets/Scenes/Room04.unity" };
+        static readonly string[] Groups = { "Props", "Details", "Dressing", "Kenney", "Pipes", "Cistern", "Armory", "Boiler", "Corridor" };
 
         // Props meant to lean or lie on their side, and things meant to hang from the ceiling or sit on a wall.
         static readonly string[] Tilted = { "Chair", "chair", "tool-", "Helmet", "Bottle", "bottle", "Sack", "Tin", "Lid", "Rubble", "Mop", "Crowbar", "Chute", "Trough" };
         static readonly string[] Hanging = { "Lamp", "Halo", "Cable", "Pulley", "Chain", "Hopper", "Weight", "Counterweight", "Pipe", "Clamp", "Sign", "Note", "Calendar",
                                              "Poster", "Notice", "Photo", "Clock", "Coat", "Breaker", "FirstAid", "Vent", "Rack", "Shelf", "Display", "Bolt", "Guide",
                                              "Keeper", "Spout", "Valve", "Wheel", "Stream", "Tube", "Fluorescent", "Target", "Gauge", "Conduit", "Hasp", "Hook", "Rod",
-                                             "Shutter", "Crank", "Leak", "Sparks", "Rat", "Housing", "Lever", "Cord", "Bulb", "Window", "Flap" };
+                                             "Shutter", "Crank", "Leak", "Sparks", "Rat", "Housing", "Lever", "Cord", "Bulb", "Window", "Flap",
+                                             "Piston", "Coil", "Winding", "Needle", "Tap", "Socket", "Plug", "Lead", "Line", "Bracket", "LiveEnd",
+                                             "Relief", "Feed", "Wire", "Glow", "Lighter", "Stack", "Dial", "Cage" };
 
         [MenuItem("GJ/Debug/Audit Rooms")]
         public static void Run()
@@ -39,7 +41,9 @@ namespace GJ.PSX.EditorTools
                     else if (r.sharedMaterial.HasProperty("_BaseMap") && r.sharedMaterial.GetTexture("_BaseMap") == null) sb.AppendLine("NO TEXTURE " + Path(r.transform) + " " + r.sharedMaterial.name);
                 sb.AppendLine($"missing meshes: {missing}");
 
-                var world = GameObject.Find(System.IO.Path.GetFileNameWithoutExtension(path))?.transform;
+                // The scene's root by name ("Hub" is also what the door wheels' centres are called).
+                string rootName = System.IO.Path.GetFileNameWithoutExtension(path);
+                var world = System.Array.Find(scene.GetRootGameObjects(), g => g.name == rootName)?.transform;
                 if (world == null) continue;
                 var floor = world.Find("Shell/Floor").GetComponent<Renderer>().bounds;
                 foreach (var g in Groups)

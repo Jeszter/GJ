@@ -1,9 +1,15 @@
+using System.Collections;
 using UnityEngine;
 
 namespace GJ.Game
 {
-    // Room 1: light the powder trail and make sure the water bucket is off it. The flame is slower than the air,
-    // so it lands after you are gone; when it reaches the pipe the blast opens the door.
+    // Room 1. Three ways through the door:
+    //  - the powder trail: light it and make sure the water bucket is off it. The flame is slower than the air, so it
+    //    lands after you are gone; when it reaches the pipe the blast opens the door.
+    //  - loud: a round from the revolver on the workbench into the gas cylinder by the pipe. The blast takes the door
+    //    and you with it.
+    //  - the gas: open the cylinder's valve and let the room fill. Every breath is shorter; when you go down, the lit
+    //    lighter falls out of your hand and the room goes up. Shut the lighter first and it was for nothing.
     public class FusePuzzle : RoomPuzzle
     {
         public Fuse fuse;
@@ -11,12 +17,33 @@ namespace GJ.Game
         public float igniteRange = 1.3f;
         public AudioClip shoveClip;
 
-        public override bool Working => fuse.Current == Fuse.State.Burning;
+        public GameObject benchGun;          // the revolver lying on the workbench until it is taken
+        public Transform benchGunPoint;
+        public AudioClip takeClip;
+
+        public Shootable gasCylinder;
+        public Transform gasValve;           // the cylinder's hand wheel; spins about its local Y
+        public AudioSource gasHiss;
+        public AudioClip valveClip;
+        public float gasNeeded = 8f;         // seconds of leak before there is enough gas in the room to go up
+        public float gasAirDrain = 2.2f;
+
+        bool _gasOpen, _busyValve, _blown, _igniting, _diedDark;
+        float _gas;
+        Color _fogColor;
+        float _fogEnd;
+
+        public override bool Working => fuse.Current == Fuse.State.Burning || _igniting;
 
         public override Vector3? Focus =>
+            _igniting ? gasCylinder.transform.position + Vector3.up * 0.8f :
             fuse.Current == Fuse.State.Burning ? fuse.FrontWorld + Vector3.up * 0.05f : (Vector3?)null;
 
+        public override float AirDrain => _gasOpen ? gasAirDrain : 1f;
+
         public override string FailReason =>
+            _gasOpen && _diedDark ? "the lighter was shut when you fell. the gas just hung there" :
+            _gasOpen && _gas < gasNeeded ? "not enough gas had leaked to go up" :
             fuse.Current == Fuse.State.Idle ? "the fuse was never lit" :
             fuse.Current == Fuse.State.Fizzled ? "the water in the bucket put the fire out" : null;
 
@@ -24,10 +51,25 @@ namespace GJ.Game
         {
             fuse.Finished += RaiseSolved;
             fuse.Fizzled += () => Say("the water in the bucket put it out");
+            if (gasCylinder != null) gasCylinder.Shot += _ => Blow(true);
+            _fogColor = RenderSettings.fogColor;
+            _fogEnd = RenderSettings.fogEndDistance;
+            if (gasHiss != null) gasHiss.volume = 0f;
         }
 
         public override Option? Look(Vector3 eye, Vector3 forward, bool lit)
         {
+            var gun = Director != null ? Director.Gun : null;
+            if (benchGun != null && benchGun.activeSelf && gun != null && Aim(eye, forward, benchGunPoint.position, 1.7f) > 0.86f)
+                return new Option { prompt = "[E] take the revolver", act = TakeGun };
+
+            if (!_blown && !_busyValve && gasValve != null && Aim(eye, forward, gasValve.position, 1.5f) > 0.9f)
+                return new Option
+                {
+                    prompt = _gasOpen ? "[E] close the gas valve" : "[E] open the gas valve",
+                    act = () => StartCoroutine(TurnValve())
+                };
+
             // The bucket first while it still sits on the powder and is what you're looking at: once the flame has
             // died against it, the fuse's front is right beside it and relighting there only drowns it again.
             if (bucket != null && BucketBlocksTrail())
@@ -47,7 +89,90 @@ namespace GJ.Game
                     act = () => { if (fuse.Ignite()) Say("the fuse is lit"); }
                 };
             }
+
+            if (!_blown && gun != null && gun.Owned && !gun.Drawn && gun.rounds > 0 && gasCylinder != null &&
+                Aim(eye, forward, gasCylinder.transform.position + Vector3.up * 0.6f, 7f) > 0.985f)
+                return new Option { prompt = "[Q] draw the revolver" };
             return null;
+        }
+
+        void TakeGun()
+        {
+            benchGun.SetActive(false);
+            if (takeClip != null) AudioSource.PlayClipAtPoint(takeClip, benchGunPoint.position, 0.8f);
+            Director.Gun.Give(2);
+            Say("a revolver. two rounds in it\n[Q] draw / put away   [LMB] fire");
+        }
+
+        IEnumerator TurnValve()
+        {
+            _busyValve = true;
+            if (valveClip != null) AudioSource.PlayClipAtPoint(valveClip, gasValve.position, 0.8f);
+            Quaternion start = gasValve.localRotation;
+            float dir = _gasOpen ? 1f : -1f;
+            for (float t = 0f; t < 0.7f; t += Time.deltaTime)
+            {
+                gasValve.localRotation = start * Quaternion.Euler(0f, dir * 300f * Mathf.SmoothStep(0f, 1f, t / 0.7f), 0f);
+                yield return null;
+            }
+            gasValve.localRotation = start;
+            _gasOpen = !_gasOpen;
+            _busyValve = false;
+            Say(_gasOpen ? "gas hisses out of the cylinder\nevery breath is shorter now" : "the hissing stops");
+        }
+
+        void Update()
+        {
+            // Already carrying one (brought in, or kept from how this attempt began): no second gun on the bench.
+            if (benchGun != null && benchGun.activeSelf && Director != null && Director.Gun != null && Director.Gun.Owned)
+                benchGun.SetActive(false);
+
+            if (_gasOpen && !_blown) _gas += Time.deltaTime;
+
+            // The gas shows: the air thickens and turns sickly yellow as the room fills.
+            float thick = Mathf.Clamp01(_gas / 30f);
+            if (!_blown)
+            {
+                RenderSettings.fogColor = Color.Lerp(_fogColor, new Color(0.13f, 0.14f, 0.05f), thick);
+                RenderSettings.fogEndDistance = Mathf.Lerp(_fogEnd, 6f, thick);
+            }
+            if (gasHiss != null)
+            {
+                gasHiss.volume = Mathf.MoveTowards(gasHiss.volume, _gasOpen && !_blown ? 0.7f : 0f, Time.deltaTime * 2f);
+                if (gasHiss.volume > 0f && !gasHiss.isPlaying) gasHiss.Play();
+                if (gasHiss.volume <= 0f && gasHiss.isPlaying) gasHiss.Stop();
+            }
+        }
+
+        // Falling with the lighter still burning drops a flame into a room full of gas.
+        public override void PlayerDied(bool lit)
+        {
+            if (!_gasOpen || _blown) return;
+            if (!lit) { _diedDark = true; return; }
+            if (_gas < gasNeeded) return;
+            StartCoroutine(GasIgnites());
+        }
+
+        IEnumerator GasIgnites()
+        {
+            _igniting = true;
+            yield return new WaitForSeconds(1.6f);   // the lighter tumbles out of the hand and across the floor
+            _igniting = false;
+            Blow(false);
+        }
+
+        // The cylinder goes up: the blast runs down the pipe to the mechanism and the door comes open. Shot while you
+        // stand in here, it takes you too.
+        void Blow(bool shot)
+        {
+            if (_blown) return;
+            _blown = true;
+            _gasOpen = false;
+            gasCylinder.gameObject.SetActive(false);
+            RenderSettings.fogColor = _fogColor;
+            RenderSettings.fogEndDistance = _fogEnd;
+            RaiseSolved();
+            if (shot && Director != null) Director.Kill("the blast took the door.\nand you with it.");
         }
 
         // Shove the bucket sideways, off the trail and away from the walls.

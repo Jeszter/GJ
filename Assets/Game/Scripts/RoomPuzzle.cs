@@ -20,6 +20,19 @@ namespace GJ.Game
         public event Action Solved;
         public event Action<string> Message;
 
+        // The room's director, for the few routes that act on the body itself (gas, a blast, hanging on the weight).
+        protected RoomDirector Director { get; private set; }
+        public void Bind(RoomDirector director) => Director = director;
+
+        // How fast the air goes: gas in the room makes every breath worse.
+        public virtual float AirDrain => 1f;
+
+        // The room has just loaded; cameFrom is the scene the player walked in from (null at the start of a run).
+        public virtual void Arrived(string cameFrom) { }
+
+        // The moment the player collapses; lit: whether the lighter was burning in their hand as it fell.
+        public virtual void PlayerDied(bool lit) { }
+
         // Still moving and still able to open the door: a dead player keeps watching instead of starting over.
         public abstract bool Working { get; }
 

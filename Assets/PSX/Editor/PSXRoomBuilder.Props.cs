@@ -19,6 +19,9 @@ namespace GJ.PSX.EditorTools
             Lit("PaintBlue", lit, Plain("paint_blue", new Color(0.18f, 0.27f, 0.42f), 0.08f));
             Lit("PaintGreen", lit, Plain("paint_green", new Color(0.2f, 0.34f, 0.2f), 0.08f));
             Lit("Rubber", lit, Plain("rubber", new Color(0.07f, 0.07f, 0.07f), 0.05f));
+            // Twisted hemp: diagonal strands.
+            Lit("Rope", lit, MakeTexture("rope", 16, (x, y) =>
+                Shade(new Color(0.5f, 0.41f, 0.27f), ((x + y) / 3 % 2 == 0 ? 0.04f : -0.05f) + (Hash(x, y, 103) - 0.5f) * 0.06f)));
             Lit("Mop", lit, MakeTexture("mop", 16, (x, y) =>
                 x % 3 == 0 ? new Color(0.3f, 0.28f, 0.24f) : Shade(new Color(0.55f, 0.52f, 0.45f), (Hash(x, y, 102) - 0.5f) * 0.1f)));
             // White box with a red cross.

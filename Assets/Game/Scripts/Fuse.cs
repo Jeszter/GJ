@@ -12,7 +12,7 @@ namespace GJ.Game
         public enum State { Idle, Burning, Fizzled, Done }
 
         public Vector3[] path;          // local space
-        public float speed = 0.075f;    // m/s: a full burn outlasts the 90 s of air, so the player is dead before it lands
+        public float speed = 0.075f;    // m/s: a full burn outlasts all four breaths, so the player is dead before it lands
         public Material coreMaterial;
         public Material glowMaterial;
         public Material ashMaterial;

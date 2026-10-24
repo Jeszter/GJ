@@ -63,10 +63,51 @@ namespace GJ.Game
         public static int Attempt;       // this attempt at it, from 1
         public static string LastFail;   // why the attempt before ran out ("one more time"), if it did
 
-        // A room starts: one more attempt at the same room, or the first at a new one.
+        // The revolver and its rounds go with you from room to room; a round is spent for good.
+        public static bool HasRevolver;
+        public static int Rounds;
+        static bool _roomHadRevolver;
+        static int _roomRounds;
+
+        // The lighter: not in hand at the start of a run, it lies in the corridor to be found.
+        public static bool HasLighter;
+
+        // Rooms walked out of, by scene name: the corridor shows them done and opens the way out once every one is.
+        public static readonly System.Collections.Generic.HashSet<string> Cleared = new System.Collections.Generic.HashSet<string>();
+        public static string JustCleared;   // the room just walked out of, for the corridor to say so
+
+        // Where you fell on the failed tries at this room (feet position and facing): the bodies stay where they dropped.
+        public struct Body
+        {
+            public Vector3 position;
+            public float yaw;
+        }
+        public static readonly System.Collections.Generic.List<Body> Bodies = new System.Collections.Generic.List<Body>();
+        const int MaxBodies = 8;
+
+        public static void AddBody(Vector3 position, float yaw)
+        {
+            if (Bodies.Count >= MaxBodies) Bodies.RemoveAt(0);
+            Bodies.Add(new Body { position = position, yaw = yaw });
+        }
+
+        // A room starts: one more attempt at the same room, or the first at a new one. Another attempt gets back what
+        // you came in with, so rounds fired on a failed try aren't lost.
         public static void BeginAttempt(string room)
         {
-            Attempt = room == Room ? Attempt + 1 : 1;
+            if (room == Room)
+            {
+                Attempt++;
+                HasRevolver = _roomHadRevolver;
+                Rounds = _roomRounds;
+            }
+            else
+            {
+                Attempt = 1;
+                _roomHadRevolver = HasRevolver;
+                _roomRounds = Rounds;
+                Bodies.Clear();
+            }
             Room = room;
         }
 
@@ -77,6 +118,12 @@ namespace GJ.Game
             Room = null;
             Attempt = 0;
             LastFail = null;
+            HasRevolver = false;
+            Rounds = 0;
+            Bodies.Clear();
+            Cleared.Clear();
+            JustCleared = null;
+            HasLighter = false;
         }
     }
 }

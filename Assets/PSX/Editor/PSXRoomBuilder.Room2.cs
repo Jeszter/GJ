@@ -61,7 +61,8 @@ namespace GJ.PSX.EditorTools
             Life2();
 
             var rig = BuildPlayer(new Vector3(0.6f, 0f, 0.9f), 0f);
-            BuildDirector(rig, puzzle, 75f, "SECTOR 4 - PUMP ROOM\nyou have 75 seconds of air", 2, "Room03");
+            BuildDirector(rig, puzzle, 4, "SECTOR 4 - PUMP ROOM\nyou have four breaths", 2, "Hub");
+            UnityEngine.Object.FindFirstObjectByType<Game.RoomDirector>().revolver = BuildRevolver(rig);
 
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.11f, 0.12f, 0.15f);
@@ -251,7 +252,10 @@ namespace GJ.PSX.EditorTools
             bolt.localPosition = new Vector3(doorDrop.x, 0f, doorDrop.z);
             Block("Bar", "Steel", new Vector3(0, 1.6f, 0), new Vector3(0.05f, 0.8f, 0.05f), default, 4f, bolt);
             Block("Eye", "Steel", new Vector3(0, 2.02f, 0), new Vector3(0.012f, 0.05f, 0.05f), default, 4f, bolt);
-            Block("Hasp", "Steel", new Vector3(0.12f, 1.3f, 0.04f), new Vector3(0.26f, 0.05f, 0.05f), default, 4f, bolt);
+            // The hasp through the door's edge is rusted half through: one round would snap it.
+            var hasp = Block("Hasp", "Rust", new Vector3(0.12f, 1.3f, 0.04f), new Vector3(0.26f, 0.05f, 0.05f), default, 4f, bolt);
+            var haspTarget = hasp.AddComponent<BoxCollider>();
+            haspTarget.size = new Vector3(0.32f, 0.14f, 0.14f);
             foreach (float gy in new[] { 1.35f, 1.88f })
             {
                 Block("Guide", "DarkMetal", new Vector3(doorDrop.x, gy, doorDrop.z), new Vector3(0.1f, 0.06f, 0.1f), default, 4f, works);
@@ -312,6 +316,9 @@ namespace GJ.PSX.EditorTools
             puzzle.valveClip = PSXSoundGenerator.Load("valve");
             puzzle.chainClip = PSXSoundGenerator.Load("chain");
             puzzle.clunkClip = PSXSoundGenerator.Load("clunk");
+            puzzle.hasp = hasp.AddComponent<Game.Shootable>();
+            puzzle.haspPiece = hasp;
+            puzzle.snapClip = PSXSoundGenerator.Load("glass_break");
 
             // Start the scene the way the puzzle starts: dry, chain off its hook.
             bucketWater.localPosition = new Vector3(0f, puzzle.waterLow, 0f);

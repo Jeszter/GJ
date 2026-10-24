@@ -66,16 +66,27 @@ namespace GJ.PSX.EditorTools
         public static void BuildAll()
         {
             if (!BeginBuild()) return;
+            BuildRoom4();
             BuildRoom3();
             BuildRoom2();
             BuildRoom1();
+            BuildHub();
             BuildMenu();
             FinishBuild();
         }
 
+        const string LastBuildKey = "GJ.Build.FinishedAt";
+
         static bool BeginBuild()
         {
             if (EditorApplication.isPlaying) { Debug.LogWarning("Stop Play mode before building the room."); return false; }
+            // A request from the editor bridge that times out is sent again, and a build always outlasts the timeout:
+            // one that finished under a minute ago is that same request coming back, not a new one.
+            if (EditorApplication.timeSinceStartup - SessionState.GetFloat(LastBuildKey, -1000f) < 60f)
+            {
+                Debug.LogWarning("Built a moment ago, skipping the repeat.");
+                return false;
+            }
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return false;
             Directory.CreateDirectory(Root + "/Textures");
             Directory.CreateDirectory(Root + "/Materials");
@@ -124,7 +135,26 @@ namespace GJ.PSX.EditorTools
             puzzle.fuse = _fuse;
             puzzle.bucket = GameObject.Find("Room01/Props/Bucket")?.transform;
             puzzle.shoveClip = PSXSoundGenerator.Load("clunk");
-            BuildDirector(rig, puzzle, 90f, "find a way out\nyou have 90 seconds of air", 1, "Room02");
+
+            // M.'s revolver left on the workbench: two rounds, and they have to last the whole way down.
+            var benchGun = Group("BenchRevolver", new Vector3(2.38f, 0.948f, 2.95f), 0f, _world);
+            benchGun.localRotation = Quaternion.Euler(0f, 70f, 90f);
+            RevolverModel(benchGun);
+            var gunPoint = new GameObject("BenchRevolverPoint").transform;
+            gunPoint.SetParent(_world, false);
+            gunPoint.localPosition = new Vector3(2.38f, 0.98f, 2.95f);
+            puzzle.benchGun = benchGun.gameObject;
+            puzzle.benchGunPoint = gunPoint;
+            puzzle.takeClip = PSXSoundGenerator.Load("rifle_bolt");
+
+            var pipeGas = GameObject.Find("Room01/Props/PipeGas").transform;
+            puzzle.gasCylinder = pipeGas.GetComponent<Game.Shootable>();
+            puzzle.gasValve = pipeGas.Find("HandWheel");
+            puzzle.gasHiss = pipeGas.GetComponent<AudioSource>();
+            puzzle.valveClip = PSXSoundGenerator.Load("valve");
+
+            BuildDirector(rig, puzzle, 4, "SECTOR 4 - POWDER ROOM\nyou have four breaths", 1, "Hub");
+            UnityEngine.Object.FindFirstObjectByType<Game.RoomDirector>().revolver = BuildRevolver(rig);
             SetupRenderSettings();
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("PSX room built: " + ScenePath);
@@ -133,7 +163,7 @@ namespace GJ.PSX.EditorTools
         // The main menu first (the game starts there), then the rooms in order. Scenes that no longer exist drop out.
         static void FinishBuild()
         {
-            var order = new[] { MenuPath, ScenePath, Scene2Path, Scene3Path };
+            var order = new[] { MenuPath, HubPath, ScenePath, Scene2Path, Scene3Path, Scene4Path };
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
             scenes.RemoveAll(s => System.Array.IndexOf(order, s.path) >= 0 || !File.Exists(s.path));
             int at = 0;
@@ -141,6 +171,7 @@ namespace GJ.PSX.EditorTools
                 if (File.Exists(path)) scenes.Insert(at++, new EditorBuildSettingsScene(path, true));
             EditorBuildSettings.scenes = scenes.ToArray();
             AssetDatabase.SaveAssets();
+            SessionState.SetFloat(LastBuildKey, (float)EditorApplication.timeSinceStartup);
         }
 
         // ---------------------------------------------------------------- textures
@@ -576,6 +607,31 @@ namespace GJ.PSX.EditorTools
             Lit("SignSand", lit, Sign("sign_sand", 64, 16, new Color(0.55f, 0.45f, 0.2f), new Color(0.08f, 0.08f, 0.08f), 1, "SAND"));
             Lit("SignArmory", lit, Sign("sign_armory", 64, 16, new Color(0.17f, 0.18f, 0.19f), new Color(0.78f, 0.76f, 0.7f), 1, "ARMORY"));
             Lit("SignAmmo", lit, Sign("sign_ammo", 64, 16, new Color(0.62f, 0.12f, 0.08f), new Color(0.9f, 0.85f, 0.75f), 1, "SIGN OUT"));
+            Lit("SignHold", lit, Sign("sign_hold", 64, 32, new Color(0.8f, 0.62f, 0.1f), new Color(0.08f, 0.08f, 0.08f), 1, "HOLD DOWN", "CAGE LIFTS"));
+            // The corridor: a stencil over every room's door, and the lamp beside it, red until the room is done.
+            foreach (var (n, label) in HubSigns)
+                Lit("SignHub" + n, lit, Sign("sign_hub" + n, 64, 16, new Color(0.17f, 0.18f, 0.19f), new Color(0.78f, 0.76f, 0.7f), 1, label));
+            Lit("GreenLamp", lit, Plain("green_lamp", Color.white, 0f), new Color(0.15f, 1f, 0.3f) * 2.2f);
+            // Faded blue work overalls for the bodies left on the floor: they have to read against warm brick and tile.
+            Lit("Coverall", lit, MakeTexture("coverall", 16, (x, y) =>
+                Shade(new Color(0.34f, 0.42f, 0.54f), (Hash(x / 2, y / 2, 171) - 0.5f) * 0.08f + (x % 8 == 0 ? -0.05f : 0f))),
+                new Color(0.02f, 0.025f, 0.035f));
+            // The boiler room: valve and danger stencils, copper windings, and a pressure dial with no needle painted on.
+            Lit("SignBoiler", lit, Sign("sign_boiler", 64, 16, new Color(0.17f, 0.18f, 0.19f), new Color(0.78f, 0.76f, 0.7f), 1, "BOILER ROOM"));
+            Lit("SignWater", lit, Sign("sign_water", 48, 16, new Color(0.12f, 0.3f, 0.5f), new Color(0.9f, 0.92f, 0.9f), 1, "WATER"));
+            Lit("SignRelief", lit, Sign("sign_relief", 48, 16, new Color(0.62f, 0.12f, 0.08f), new Color(0.9f, 0.85f, 0.75f), 1, "RELIEF"));
+            Lit("SignLive", lit, Sign("sign_live", 64, 32, new Color(0.8f, 0.62f, 0.1f), new Color(0.08f, 0.08f, 0.08f), 1, "DANGER", "LIVE LINE"));
+            Lit("Copper", lit, MakeTexture("copper", 16, (x, y) =>
+                Shade(new Color(0.62f, 0.34f, 0.16f), (y % 2 == 0 ? 0.05f : -0.05f) + (Hash(x, y, 170) - 0.5f) * 0.06f)), new Color(0.06f, 0.03f, 0.01f));
+            Lit("Dial", lit, MakeTexture("dial", 16, (x, y) =>
+            {
+                Vector2 d = new Vector2(x - 7.5f, y - 7.5f);
+                if (d.magnitude > 7.2f) return new Color(0.1f, 0.1f, 0.1f);
+                float ang = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
+                if (d.magnitude > 5.5f && Mathf.Repeat(ang, 30f) < 8f && ang > -40f) return new Color(0.15f, 0.15f, 0.15f);
+                if (d.magnitude > 5.5f && ang > -40f && ang < 10f) return new Color(0.7f, 0.12f, 0.08f);
+                return new Color(0.85f, 0.82f, 0.74f);
+            }), new Color(0.12f, 0.11f, 0.09f));
 
             var strip = GlowStrip();
             Additive("WaterStream", add, strip, new Color(0.45f, 0.65f, 0.8f) * 0.9f);
@@ -590,6 +646,7 @@ namespace GJ.PSX.EditorTools
             Additive("FuseGlow", add, strip, new Color(1f, 0.35f, 0.08f) * 0.55f);
             Additive("Halo", add, Glow(), new Color(1f, 0.75f, 0.45f) * 0.5f);
             Additive("RedHalo", add, Glow(), new Color(1f, 0.15f, 0.08f) * 0.6f);
+            Additive("GreenHalo", add, Glow(), new Color(0.15f, 1f, 0.3f) * 0.5f);
             Additive("Flame", add, Flame(), Color.white * 1.4f);
             Additive("FlameCore", add, Flame(), new Color(1f, 0.92f, 0.7f) * 1.3f);
             Additive("FlameHalo", add, Glow(), new Color(1f, 0.5f, 0.18f) * 0.3f);
@@ -1490,6 +1547,26 @@ namespace GJ.PSX.EditorTools
             for (int i = 0; i < 2; i++) GasCylinder(new Vector3(-2.66f, 0, 3.1f + i * 0.34f), -90f + i * 25f, props);
             GasBracket(new Vector3(RoomMin.x, 0.95f, 3.27f), 0.68f, props);
 
+            // One more by the pipe, its hose plumbed into it: the other ways through the door. Shoot it, or open its
+            // valve and let the room fill.
+            var pipeGas = GasCylinder(new Vector3(-2.66f, 0, 6.0f), -90f, props, "PipeGas");
+            var hose = new MeshBuilder();
+            Vector3 outlet = new Vector3(-2.66f, 1.3f, 6.03f), sag = new Vector3(-2.74f, 0.95f, 6.8f), inlet = new Vector3(-2.74f, 1.05f, 7.6f);
+            hose.Tube(outlet, sag, 0.014f, 0.014f, 6, Vector3.right, 4f);
+            hose.Tube(sag, inlet, 0.014f, 0.014f, 6, Vector3.right, 4f);
+            Place("GasHose", hose, "Rubber", Vector3.zero, default, props);
+            Cyl("HoseClamp", "Steel", inlet + new Vector3(-0.02f, 0, 0), 0.025f, 0.04f, 8, new Vector3(0, 0, 90), 4f, props);
+            pipeGas.gameObject.AddComponent<Game.Shootable>();
+            var hiss = pipeGas.gameObject.AddComponent<AudioSource>();
+            hiss.clip = PSXSoundGenerator.Load("steam");
+            hiss.loop = true;
+            hiss.playOnAwake = false;
+            hiss.spatialBlend = 1f;
+            hiss.rolloffMode = AudioRolloffMode.Linear;
+            hiss.minDistance = 0.6f;
+            hiss.maxDistance = 9f;
+            hiss.volume = 0f;
+
             // Fire extinguisher and a warning sign.
             Extinguisher(new Vector3(RoomMin.x, 0.5f, 5.1f), 90f, props);
             var sign = new MeshBuilder();
@@ -1684,9 +1761,9 @@ namespace GJ.PSX.EditorTools
 
         // A welding-gas cylinder: rounded shoulder, neck, a valve with its hand wheel inside a protective collar,
         // a white band with a hazard diamond, and a foot ring.
-        static void GasCylinder(Vector3 pos, float yaw, Transform parent)
+        static Transform GasCylinder(Vector3 pos, float yaw, Transform parent, string name = "GasCylinder")
         {
-            var g = Group("GasCylinder", pos, yaw, parent);
+            var g = Group(name, pos, yaw, parent);
             const float r = 0.14f, h = 1.08f;
             Cyl("Body", "RedPaint", Vector3.zero, r, h, 14, default, 1f, g, true);
             var dome = new MeshBuilder();
@@ -1708,6 +1785,7 @@ namespace GJ.PSX.EditorTools
             var foot = new MeshBuilder();
             OpenDrum(foot, Vector3.zero, r + 0.012f, 0.06f, 14, 0.01f, 2f);
             Place("FootRing", foot, "DarkMetal", Vector3.zero, default, g);
+            return g;
         }
 
         // A fire extinguisher on its wall bracket (the group sits on the wall, facing +Z into the room): red body with
@@ -2005,11 +2083,11 @@ namespace GJ.PSX.EditorTools
             return flow;
         }
 
-        // The room's rules (air timer, death, revival, restart) and everything round it (pause, settings, end card).
-        static void BuildDirector(PlayerRig rig, Game.RoomPuzzle puzzle, float air, string startMessage, int room, string nextScene)
+        // The room's rules (breaths of air, death, revival, restart) and everything round it (pause, settings, end card).
+        static void BuildDirector(PlayerRig rig, Game.RoomPuzzle puzzle, int breaths, string startMessage, int room, string nextScene)
         {
             var director = new GameObject("RoomDirector").AddComponent<Game.RoomDirector>();
-            director.airSeconds = air;
+            director.breaths = breaths;
             director.startMessage = startMessage;
             director.controller = rig.controller;
             director.head = rig.head;
@@ -2026,6 +2104,7 @@ namespace GJ.PSX.EditorTools
             director.paperClip = PSXSoundGenerator.Load("paper");
             director.gaspClip = PSXSoundGenerator.Load("gasp");
             director.ambientClips = new[] { PSXSoundGenerator.Load("drip"), PSXSoundGenerator.Load("drip"), PSXSoundGenerator.Load("rumble") };
+            director.corpseTemplate = CorpseTemplate();
 
             var flow = BuildFlow(rig.head);
             flow.director = director;

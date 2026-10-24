@@ -21,6 +21,9 @@ namespace GJ.PSX
         // Set while a menu is open: no looking, no walking.
         public static bool Frozen;
 
+        // Off while the body is held somewhere (hanging on the counterweight): the head still turns, the feet don't.
+        public bool canMove = true;
+
         CharacterController _cc;
         Vector3 _headRest;
         float _yaw, _pitch, _vy, _bob;
@@ -68,6 +71,12 @@ namespace GJ.PSX
                 _pitch = Mathf.Clamp(_pitch + (invertY ? look.y : -look.y), -85f, 85f);
             }
             transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
+
+            if (!canMove)
+            {
+                if (head != null) head.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+                return;
+            }
 
             Vector2 input = Vector2.zero;
             if (kb.wKey.isPressed) input.y += 1f;

@@ -10,6 +10,18 @@ namespace GJ.PSX.EditorTools
     public static partial class PSXRoomBuilder
     {
         const string Scene3Path = "Assets/Scenes/Room03.unity";
+        static GameObject _crowbar;
+        static Game.HeldGate _crowbarCage;
+        // Open floor between the lamp and the right-hand boxes, well over a reach away from the cage.
+        static readonly Vector3 CagePlateAt = new Vector3(1.5f, 0f, 4.0f);
+
+        const string NoteCage =
+            "The crowbar's in the cage.\n" +
+            "The grille only lifts while\n" +
+            "something holds the plate down.\n\n" +
+            "Nothing in here is heavy enough.\n\n" +
+            "Nothing but me.\n\n" +
+            "                        - M.";
 
         const string NoteDay7 =
             "DAY 7\n\n" +
@@ -43,6 +55,15 @@ namespace GJ.PSX.EditorTools
 
             var puzzle = BuildArmory();
             BuildRoom3Props();
+            // The crowbar: a way to the hopper's gate without spending a round, caged behind a grille that only a weight
+            // on the plate across the room holds up.
+            puzzle.crowbar = _crowbar;
+            var crowbarPoint = new GameObject("CrowbarPoint").transform;
+            crowbarPoint.SetParent(_world, false);
+            crowbarPoint.localPosition = new Vector3(-1.75f, 1.2f, 0.2f);
+            puzzle.crowbarPoint = crowbarPoint;
+            _crowbarCage.plate = PressurePlateAt("CagePlate", CagePlateAt, 0f, _world);
+            puzzle.crowbarCage = _crowbarCage;
             BuildRoom3Lights();
             AutoColliders(_world);
             var life = new GameObject("Life").transform;
@@ -53,7 +74,7 @@ namespace GJ.PSX.EditorTools
             var rig = BuildPlayer(new Vector3(0.4f, 0f, 0.9f), 0f);
             var revolver = BuildRevolver(rig);
             puzzle.revolver = revolver;
-            BuildDirector(rig, puzzle, 60f, "SECTOR 4 - ARMORY\nyou have 60 seconds of air", 3, "");
+            BuildDirector(rig, puzzle, 3, "SECTOR 4 - ARMORY\nyou have three breaths", 3, "Hub");
             UnityEngine.Object.FindFirstObjectByType<Game.RoomDirector>().revolver = revolver;
 
             RenderSettings.ambientMode = AmbientMode.Flat;
@@ -229,6 +250,16 @@ namespace GJ.PSX.EditorTools
             hopperChain.localPosition = new Vector3(0, 0.45f, 0);
             hopperChain.localScale = new Vector3(1f, ceil - 0.23f - 2.8f, 1f);
             hopperChain.localRotation = Quaternion.Euler(180f, 0f, 0f);
+            // The chain is lashed to the bail with a few turns of hemp rope: something a flame can get at.
+            var rope = new GameObject("Rope").transform;
+            rope.SetParent(boltBody, false);
+            rope.localPosition = new Vector3(0, 0.5f, 0);
+            var ropeMb = new MeshBuilder();
+            ropeMb.Tube(new Vector3(0, -0.06f, 0), new Vector3(0, 0.07f, 0), 0.028f, 0.024f, 7, Vector3.forward, 8f);
+            Place("Lashing", ropeMb, "Rope", Vector3.zero, default, rope);
+            var emberMb = new MeshBuilder();
+            emberMb.Cross(Vector3.zero, 0.09f, 0.09f);
+            var ember = Place("RopeEmber", emberMb, "FuseGlow", new Vector3(0, 0.46f, 0), default, boltBody);
             var weight = new GameObject("IronWeight").transform;
             weight.SetParent(works, false);
             weight.localPosition = new Vector3(-1.5f, 2.0f, 7.33f);
@@ -348,7 +379,40 @@ namespace GJ.PSX.EditorTools
             puzzle.hitClip = PSXSoundGenerator.Load("clunk");
             puzzle.glassClip = PSXSoundGenerator.Load("glass_break");
             puzzle.clunkClip = PSXSoundGenerator.Load("door_wheel");
+            puzzle.rope = rope;
+            puzzle.ropeEmber = ember;
+            puzzle.hopperChain = hopperChain;
+            puzzle.pryClip = PSXSoundGenerator.Load("squeak");
+            puzzle.igniteClip = PSXSoundGenerator.Load("ignite");
+            puzzle.snapClip = PSXSoundGenerator.Load("clunk");
             return puzzle;
+        }
+
+        // A steel box on the wall with a barred grille in front that slides up in two guides, hauled by a wire.
+        static Game.HeldGate CrowbarCage(Vector3 at, Transform parent)
+        {
+            var cage = Group("CrowbarCage", at, 0f, parent);
+            Block("Back", "DarkMetal", new Vector3(0, 0.25f, 0.01f), new Vector3(1.0f, 0.5f, 0.02f), default, 2f, cage);
+            Block("Floor", "DarkMetal", new Vector3(0, 0.01f, 0.12f), new Vector3(1.0f, 0.02f, 0.24f), default, 2f, cage);
+            Block("Roof", "DarkMetal", new Vector3(0, 0.49f, 0.12f), new Vector3(1.0f, 0.02f, 0.24f), default, 2f, cage);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Block("Side", "DarkMetal", new Vector3(0.49f * s, 0.25f, 0.12f), new Vector3(0.02f, 0.5f, 0.24f), default, 2f, cage);
+                Block("Guide", "Steel", new Vector3(0.515f * s, 0.5f, 0.245f), new Vector3(0.02f, 1.0f, 0.03f), default, 4f, cage);
+            }
+            var grille = new GameObject("Grille").transform;
+            grille.SetParent(cage, false);
+            grille.localPosition = new Vector3(0, 0f, 0.245f);
+            var bars = new MeshBuilder();
+            for (int i = 0; i <= 14; i++) bars.Box(new Vector3(-0.49f + i * 0.07f, 0.25f, 0), new Vector3(0.012f, 0.48f, 0.012f), 8f);
+            foreach (float y in new[] { 0.02f, 0.25f, 0.48f }) bars.Box(new Vector3(0, y, 0), new Vector3(1.0f, 0.025f, 0.016f), 8f);
+            Place("Bars", bars, "Steel", Vector3.zero, default, grille);
+            var gate = cage.gameObject.AddComponent<Game.HeldGate>();
+            gate.leaf = grille;
+            gate.openOffset = new Vector3(0f, 0.47f, 0f);
+            gate.openClip = PSXSoundGenerator.Load("chain");
+            gate.slamClip = PSXSoundGenerator.Load("clunk");
+            return gate;
         }
 
         static void BuildRoom3Props()
@@ -387,7 +451,21 @@ namespace GJ.PSX.EditorTools
                 Block("Peg", "DarkMetal", new Vector3(x, 1.63f, 0.11f), new Vector3(0.03f, 0.06f, 0.06f), default, 4f, rack);
             }
             Plate("RackSign", "SignAmmo", new Vector3(0, 1.85f, 0.025f), 0.5f, 0.12f, Vector3.forward, rack);
-            Model("../Kkryy/Crowbar/Crowbar", new Vector3(0.6f, 0.02f, 5.8f), 60f, 0.05f, props, 0f, null, null, null, true);
+            _crowbarCage = CrowbarCage(new Vector3(-1.75f, 1.0f, 0f), props);
+            _crowbar = Model("../Kkryy/Crowbar/Crowbar", new Vector3(-1.75f, 1.03f, 0.12f), 90f, 0.05f, props, 0f, null, null, null, true);
+            _crowbar.name = "Crowbar";
+            var cageNote = Plate("Note_Cage", "NoteScrap", new Vector3(-0.98f, 1.3f, 0.012f), 0.22f, 0.28f, Vector3.forward, props, -5f);
+            cageNote.AddComponent<Game.ReadableNote>().text = NoteCage;
+            // Across the room the plate that lifts the grille (see CagePlateAt), its wire over the floor, up the wall,
+            // under the beams along the ceiling and down to the grille.
+            Plate("Sign_Hold", "SignHold", new Vector3(wallX, 1.25f, 3.7f), 0.5f, 0.25f, Vector3.left, props);
+            PullWire("CageWire", new[]
+            {
+                CagePlateAt + new Vector3(0.44f, 0.015f, 0.2f), new Vector3(2.95f, 0.015f, CagePlateAt.z + 0.2f),
+                new Vector3(2.95f, 3.1f, CagePlateAt.z + 0.2f), new Vector3(2.8f, 3.1f, CagePlateAt.z + 0.2f),
+                new Vector3(2.8f, 3.1f, 0.1f), new Vector3(-1.75f, 3.1f, 0.1f), new Vector3(-1.75f, 3.1f, 0.245f),
+                new Vector3(-1.75f, 1.5f, 0.245f)
+            }, props);
             Model("../Kkryy/Barrel/Barrel", new Vector3(2.45f, 0f, 6.85f), 20f, 0.85f, props, 0f, null, null, null, true);
             Model("../Kkryy/Barrel/Barrel", new Vector3(2.5f, 0f, 1.2f), 70f, 0.85f, props, 0f, null, null, null, true);
             Model("../Kkryy/TrashCan/TrashCan", new Vector3(1.45f, 0f, 7.0f), 0f, 0.6f, props, 0f, null, null, null, true);

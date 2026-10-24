@@ -89,7 +89,7 @@ namespace GJ.PSX.EditorTools
         }
 
         // Steam leaking from a joint, puffing out along dir and rising, with its hiss.
-        static void SteamLeak(Vector3 pos, Vector3 dir, Transform parent)
+        static ParticleSystem SteamLeak(Vector3 pos, Vector3 dir, Transform parent)
         {
             var go = new GameObject("SteamLeak");
             go.transform.SetParent(parent, false);
@@ -133,6 +133,7 @@ namespace GJ.PSX.EditorTools
             hiss.rolloffMode = AudioRolloffMode.Linear;
             hiss.minDistance = 0.5f;
             hiss.maxDistance = 6f;
+            return ps;
         }
 
         static void Leak(Vector3 top, Transform parent)
@@ -155,7 +156,7 @@ namespace GJ.PSX.EditorTools
         }
 
         // The bare end of a dangling cable (built by DanglingCable with the same top and length) spitting sparks.
-        static void SparkingEnd(Vector3 top, float length, Transform parent)
+        static GameObject SparkingEnd(Vector3 top, float length, Transform parent)
         {
             var end = top + new Vector3(Mathf.Sin(2.3f) * 0.08f, -length, Mathf.Sin(1.4f) * 0.05f);
             var root = new GameObject("Sparks").transform;
@@ -182,6 +183,7 @@ namespace GJ.PSX.EditorTools
             s.sparkLight = light;
             s.bits = bits;
             s.sparkClip = PSXSoundGenerator.Load("spark");
+            return root.gameObject;
         }
 
         // A rat: fur body, pointed head, pink ears and a long tail, and the holes it comes and goes through.

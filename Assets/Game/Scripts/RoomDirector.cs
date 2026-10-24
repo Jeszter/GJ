@@ -7,15 +7,20 @@ using UnityEngine.UI;
 
 namespace GJ.Game
 {
-    // One room's loop: a lungful of air, set the room's machinery going, die when the air runs out, and the room keeps
-    // going without you. If the puzzle opens the door you come back; if nothing is left that could open it the room
-    // starts over ("one more time"). Walking out through the door clears the room.
+    // One room's loop: a few breaths of air, set the room's machinery going, die when the last one runs out (or let it
+    // go sooner), and the room keeps going without you. If the puzzle opens the door you come back; if nothing is left
+    // that could open it the room starts over ("one more time"). Walking out through the door clears the room.
     public class RoomDirector : MonoBehaviour
     {
         enum Phase { Alive, Dying, Dead, Reviving, Cleared }
 
-        public float airSeconds = 90f;
-        public string startMessage = "find a way out\nyou have 90 seconds of air";
+        // Air comes in held breaths: near the end of each one the vision closes in and the hand shakes, then a gasp
+        // and the next. The last one ends you. Holding Space lets it all go at once.
+        public int breaths = 4;
+        public float breathSeconds = 20f;
+        public float chokeSeconds = 5f;
+        public float letGoSeconds = 1.5f;
+        public string startMessage = "find a way out\nyou have four breaths";
         public FirstPersonController controller;
         public Transform head;
         public Transform hand;
@@ -30,12 +35,19 @@ namespace GJ.Game
         public AudioClip paperClip;
         public AudioClip gaspClip;
         public AudioClip[] ambientClips;   // drips and the mountain settling, now and then, somewhere nearby
+        public Corpse corpseTemplate;      // inactive; copied for every body left from an earlier try at this room
         public float readRange = 1.6f;
         public float exitZ = 9.6f;
         public float fastForward = 4f;
 
         Phase _phase = Phase.Alive;
-        float _air;
+        float _air;          // seconds left over all the breaths still to come
+        int _breath;         // the breath being held now, counting down to 1
+        float _letGo;        // how long Space has been held toward letting go
+        bool _spaceLatched;  // Space was already down when this phase began: it has to come up before it counts again
+        bool _bodyLeft;      // dead and not (yet) coming back: leaving the room now leaves the body behind
+        Vector3 _fellAt;
+        float _fellYaw;
         float _idleDeadTime;
         Vector3 _headRest;
         Vector3 _handRest;
@@ -48,34 +60,116 @@ namespace GJ.Game
         float _nextBeat;
         float _nextAmbient = 4f;
 
-        Text _timer, _attempt, _prompt, _message, _noteText, _controls;
-        Image _fade, _paper;
+        Text _attempt, _prompt, _message, _noteText, _controls, _holdText;
+        Image _fade, _paper, _holdBar;
+        Image[] _pips, _pipRings;
         Coroutine _flash;
         float _controlsTime = 9f;
 
-        // Whether the lighter hand belongs on screen right now (it is put away while lying dead).
-        public bool HandVisible => _phase == Phase.Alive || _phase == Phase.Cleared;
+        // Whether the lighter hand belongs on screen right now (it is put away while lying dead, and gone while there
+        // is no lighter in it).
+        public bool HandVisible => (_phase == Phase.Alive || _phase == Phase.Cleared) && Holding;
+
+        // The lighter left burning in the room (under the boiler's pot): the hand goes empty and the room dark.
+        public bool LighterLeft { get; private set; }
+
+        // A lighter in the hand: found in the corridor at the start of the run, and not left behind in this room.
+        bool Holding => GameSession.HasLighter && !LighterLeft;
+
+        public void LeaveLighter(bool leave)
+        {
+            LighterLeft = leave;
+            ShowLighter(Holding);
+        }
+
+        // Picked up off the floor: into the hand, and flicked open at once.
+        public void PickUpLighter()
+        {
+            GameSession.HasLighter = true;
+            ShowLighter(Holding);
+            if (handAnimator != null) handAnimator.LightUp(0.3f);
+            _controls.text = FreeAir ? "[E] use   [F] lighter" : "[E] use   [F] lighter   [R] restart\n" + LetGoHint;
+            _controlsTime = 6f;
+        }
+
+        void ShowLighter(bool on)
+        {
+            hand.gameObject.SetActive(on);
+            if (lighterLight != null) lighterLight.enabled = on;
+        }
+
+        public bool Alive => _phase == Phase.Alive;
+        public FirstPersonController Controller => controller;
+        public Transform Head => head;
+        public Revolver Gun => revolver;
+
+        string _deathLine = "you stopped breathing.\nthe room did not.";
+
+        // Die now rather than when the air runs out (caught in a blast); the line shown as the body falls.
+        public void Kill(string line)
+        {
+            if (_phase != Phase.Alive) return;
+            if (!string.IsNullOrEmpty(line)) _deathLine = line;
+            _air = 0f;
+            StartCoroutine(Die());
+        }
 
         // True while something owns Esc or the body (reading a note, collapsing, coming back): no pause menu then.
         public bool Busy => _reading != null || _closedNoteFrame == Time.frameCount
                             || _phase == Phase.Dying || _phase == Phase.Reviving || _phase == Phase.Cleared;
 
+        // The corridor between the rooms: plenty of air, nothing to count, nobody dies out there.
+        bool FreeAir => breaths <= 0;
+        float FullAir => breaths * breathSeconds;
+        int BreathAt(float air) => Mathf.CeilToInt(air / breathSeconds - 0.0001f);
+        // What is left of the breath being held now.
+        float BreathLeft => _air - (_breath - 1) * breathSeconds;
+        float Choke => _breath > 0 ? Mathf.Clamp01(1f - BreathLeft / chokeSeconds) : 1f;
+
         void Start()
         {
-            _air = airSeconds;
+            _air = FullAir;
+            _breath = breaths;
             _headRest = head.localPosition;
             _handRest = hand.localPosition;
             _notes = FindObjectsByType<ReadableNote>(FindObjectsSortMode.None);
+            puzzle.Bind(this);
             puzzle.Solved += door.Open;
             puzzle.Message += text => { if (_phase == Phase.Alive) Flash(text); };
             BuildHud();
             BuildAudio();
             Time.timeScale = 1f;
-            if (handAnimator != null) handAnimator.LightUp(0.7f);
 
             // Another go at the same room: say which, and what went wrong last time (the death screen shows it only
             // for a moment).
+            string cameFrom = GameSession.Room;
+            // A room played straight from the editor, not reached through the corridor: hand over the lighter that
+            // would have been found out there.
+            if (cameFrom == null && !FreeAir) GameSession.HasLighter = true;
+            if (Holding)
+            {
+                ShowLighter(true);
+                if (handAnimator != null) handAnimator.LightUp(0.7f);
+            }
+            else
+            {
+                ShowLighter(false);
+                _controls.text = FreeAir ? "[E] use" : "[E] use   [R] restart\n" + LetGoHint;
+            }
             GameSession.BeginAttempt(SceneManager.GetActiveScene().name);
+            LayOutBodies();
+            puzzle.Arrived(cameFrom);
+            if (FreeAir)
+            {
+                if (Holding) _controls.text = "[E] use   [F] lighter";
+                Flash(startMessage, 5f);
+                return;
+            }
+            if (revolver != null)
+            {
+                revolver.SyncFromSession();
+                if (revolver.Owned) _controls.text = "[E] use   [F] lighter   [Q] revolver   [R] restart\n" + LetGoHint;
+            }
             string lastFail = GameSession.LastFail;
             GameSession.LastFail = null;
             int attempt = GameSession.Attempt;
@@ -87,11 +181,37 @@ namespace GJ.Game
 
         void OnDestroy() => Time.timeScale = 1f;
 
+        // Every body from an earlier try at this room, back where it fell (the player's own capsule kept out of the way
+        // while they are fitted between the walls).
+        void LayOutBodies()
+        {
+            if (corpseTemplate == null) return;
+            var cc = controller.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false;
+            for (int i = 0; i < GameSession.Bodies.Count; i++)
+            {
+                var body = GameSession.Bodies[i];
+                var corpse = Instantiate(corpseTemplate, corpseTemplate.transform.parent);
+                corpse.name = "PastBody_" + (i + 1);
+                corpse.gameObject.SetActive(true);
+                corpse.LayDown(body.position, body.yaw, (i * 37 % 25) - 12f);
+            }
+            if (cc != null) cc.enabled = true;
+        }
+
+        // Leaving the room while lying dead (one more time, or a restart) leaves the body there for the next try.
+        public void LeaveBody()
+        {
+            if (!_bodyLeft) return;
+            _bodyLeft = false;
+            GameSession.AddBody(_fellAt, _fellYaw);
+        }
+
         void Update()
         {
             var kb = Keyboard.current;
             if (_reading != null) { UpdateReading(kb); return; }
-            if (kb != null && kb.rKey.wasPressedThisFrame && _phase != Phase.Cleared) { Restart(); return; }
+            if (kb != null && kb.rKey.wasPressedThisFrame && _phase != Phase.Cleared && !FreeAir) { Restart(); return; }
 
             switch (_phase)
             {
@@ -99,10 +219,11 @@ namespace GJ.Game
                 case Phase.Dead: UpdateDead(kb); break;
             }
 
+            // In the corridor the display over the door counts the time spent down here instead.
             bool airVisible = _phase == Phase.Alive;
-            display.ShowTime(_air, !airVisible || Mathf.Repeat(Time.time, 1f) < 0.5f || _air > 10f);
-            _timer.text = "AIR " + (airVisible || _phase == Phase.Dying ? FormatTime(_air) : "--:--");
-            _timer.color = _air < 10f && airVisible ? new Color(1f, 0.25f, 0.2f) : new Color(0.95f, 0.9f, 0.8f);
+            if (FreeAir) display.ShowTime(GameSession.Time);
+            else display.ShowTime(_air, !airVisible || Mathf.Repeat(Time.time, 1f) < 0.5f || Choke <= 0f);
+            UpdatePips();
 
             // The controls sit in the corner for the first few seconds of each room, then fade away.
             _controlsTime -= Time.deltaTime;
@@ -118,9 +239,21 @@ namespace GJ.Game
 
         void UpdateAlive(Keyboard kb)
         {
-            _air -= Time.deltaTime;
+            if (!FreeAir) Breathe();
 
-            bool lit = handAnimator == null || handAnimator.Lit;
+            // Hold Space to stop breathing now instead of waiting for the air to run out.
+            bool space = kb != null && kb.spaceKey.isPressed && !FreeAir;
+            if (!space) _spaceLatched = false;
+            if (space && !_spaceLatched) _letGo += Time.deltaTime;
+            else _letGo = Mathf.MoveTowards(_letGo, 0f, Time.deltaTime * 3f);
+            if (_letGo >= letGoSeconds)
+            {
+                _letGo = 0f;
+                Kill("you let your breath go.\nthe room did not stop.");
+                return;
+            }
+
+            bool lit = Holding && (handAnimator == null || handAnimator.Lit);
             var option = puzzle.Look(head.position, head.forward, lit);
             bool canAct = option.HasValue && option.Value.act != null;
             var note = canAct ? null : NoteInView();
@@ -140,25 +273,48 @@ namespace GJ.Game
 
             // Snap the Zippo shut (darkness, and the flame is safe in your pocket) or flick it open again.
             var mouse = Mouse.current;
-            if (handAnimator != null && ((kb != null && kb.fKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)))
+            if (handAnimator != null && Holding && ((kb != null && kb.fKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)))
             {
                 // With the revolver out, the first press just puts it away and brings the lighter back up.
                 if (revolver != null && revolver.Drawn) revolver.Holster();
                 else handAnimator.Toggle();
             }
 
-            UpdateHeart();
-
-            // Running out of air: the edges of the world close in and the hand starts to shake.
-            float choke = Mathf.Clamp01(1f - _air / 15f);
-            _fade.color = new Color(0f, 0f, 0f, choke * 0.45f);
-            if (handAnimator != null) handAnimator.Tremble = Mathf.Clamp01(1f - _air / 20f);
+            if (FreeAir) return;
+            UpdateChoke();
 
             if (_air <= 0f)
             {
                 _air = 0f;
                 StartCoroutine(Die());
             }
+        }
+
+        // The air goes (faster in gas); when a held breath runs out, a gasp and the next one, while there is one.
+        void Breathe()
+        {
+            _air = Mathf.Max(0f, _air - Time.deltaTime * puzzle.AirDrain);
+            int now = BreathAt(_air);
+            if (now < _breath && now > 0 && gaspClip != null) _heart.PlayOneShot(gaspClip, 0.6f);
+            _breath = now;
+        }
+
+        // Near the end of each breath the edges of the world close in, pulsing with the heart, and the hand shakes;
+        // the gasp clears it all. The last breath is worse, and letting go darkens it too.
+        void UpdateChoke()
+        {
+            float choke = Choke;
+            bool last = _breath <= 1;
+            float letGo = Mathf.Clamp01(_letGo / letGoSeconds);
+            float pulse = 0.75f + 0.25f * Mathf.Sin(Time.time * Mathf.Lerp(5f, 10f, choke));
+            float dark = choke * (last ? 0.62f : 0.45f) * pulse;
+            dark = Mathf.Max(dark, letGo * letGo * 0.8f);
+            _fade.color = new Color(0f, 0f, 0f, dark);
+            if (handAnimator != null) handAnimator.Tremble = Mathf.Max(choke, letGo * 0.7f);
+
+            // The heart: through the choke of every breath, and all through the last one, quicker as it goes.
+            float urgency = Mathf.Max(choke, last ? 0.2f + 0.5f * (1f - BreathLeft / breathSeconds) : 0f);
+            UpdateHeart(urgency);
         }
 
         ReadableNote NoteInView()
@@ -190,11 +346,16 @@ namespace GJ.Game
         // The air keeps running while you read.
         void UpdateReading(Keyboard kb)
         {
-            _air -= Time.deltaTime;
-            _timer.text = "AIR " + FormatTime(_air);
-            display.ShowTime(_air);
+            _letGo = 0f;
+            if (!FreeAir)
+            {
+                Breathe();
+                UpdateChoke();
+                UpdatePips();
+                display.ShowTime(_air);
+            }
             bool close = kb != null && (kb.eKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame);
-            if (!close && _air > 0f) return;
+            if (!close && (_air > 0f || FreeAir)) return;
             _reading = null;
             _closedNoteFrame = Time.frameCount;
             _paper.gameObject.SetActive(false);
@@ -214,8 +375,11 @@ namespace GJ.Game
         {
             head.rotation = Quaternion.Slerp(head.rotation, DeadLook(), 1f - Mathf.Exp(-2.5f * Time.unscaledDeltaTime));
 
+            // Space still down from letting go doesn't run the clock on: it has to be let up and held again.
             bool working = puzzle.Working || door.IsOpening;
-            Time.timeScale = working && kb != null && kb.spaceKey.isPressed ? fastForward : 1f;
+            bool space = kb != null && kb.spaceKey.isPressed;
+            if (!space) _spaceLatched = false;
+            Time.timeScale = working && space && !_spaceLatched ? fastForward : 1f;
             _prompt.text = working && !door.IsOpening ? "hold [SPACE] to wait" : "";
 
             if (door.IsOpen) { StartCoroutine(Revive()); return; }
@@ -232,8 +396,16 @@ namespace GJ.Game
         {
             _phase = Phase.Dying;
             _prompt.text = "";
+            _letGo = 0f;
+            _spaceLatched = Keyboard.current != null && Keyboard.current.spaceKey.isPressed;
+            if (handAnimator != null) handAnimator.Tremble = 0f;
+            _bodyLeft = true;
+            _fellAt = controller.transform.position;
+            _fellYaw = controller.transform.eulerAngles.y;
             controller.enabled = false;
             GameSession.Deaths++;
+            if (_reading != null) UpdateReading(null);
+            puzzle.PlayerDied(Holding && (handAnimator == null || handAnimator.Lit));
             if (handAnimator != null) handAnimator.enabled = false;
             if (revolver != null) revolver.Holster();
 
@@ -259,7 +431,7 @@ namespace GJ.Game
             hand.gameObject.SetActive(false);
             if (lighterLight != null) lighterLight.enabled = false;
 
-            Say("you stopped breathing.\nthe room did not.");
+            Say(_deathLine);
             for (float t = 0f; t < 1.5f; t += Time.deltaTime)
             {
                 head.rotation = Quaternion.Slerp(head.rotation, DeadLook(), 1f - Mathf.Exp(-2.5f * Time.deltaTime));
@@ -273,6 +445,7 @@ namespace GJ.Game
         IEnumerator Revive()
         {
             _phase = Phase.Reviving;
+            _bodyLeft = false;
             Time.timeScale = 1f;
             _prompt.text = "";
             yield return new WaitForSeconds(0.8f);
@@ -292,15 +465,17 @@ namespace GJ.Game
             head.localPosition = _headRest;
             head.localRotation = Quaternion.identity;
             hand.localPosition = _handRest;
-            hand.gameObject.SetActive(true);
+            hand.gameObject.SetActive(Holding);
             if (handAnimator != null)
             {
                 handAnimator.enabled = true;
-                handAnimator.LightUp(0.5f);
+                if (Holding) handAnimator.LightUp(0.5f);
             }
-            if (lighterLight != null) lighterLight.enabled = true;
+            if (lighterLight != null) lighterLight.enabled = Holding;
             SetMuffled(false);
-            _air = airSeconds;
+            _air = FullAir;
+            _breath = breaths;
+            controller.canMove = true;
             controller.enabled = true;
 
             for (float t = 0f; t < 1.2f; t += Time.deltaTime)
@@ -309,6 +484,7 @@ namespace GJ.Game
                 yield return null;
             }
             Say("");
+            _spaceLatched = Keyboard.current != null && Keyboard.current.spaceKey.isPressed;
             _phase = Phase.Alive;
         }
 
@@ -332,13 +508,16 @@ namespace GJ.Game
             _phase = Phase.Cleared;
             controller.enabled = false;
             _prompt.text = "";
-            Say("ROOM CLEARED");
-            for (float t = 0f; t < 2f; t += Time.deltaTime)
+            // Into the dark and straight back out into the corridor; only the way out of the bunker gets a moment.
+            bool more = flow != null && !flow.IsLastRoom;
+            if (!more && !FreeAir) Say("ROOM CLEARED");
+            float fade = more ? 1f : 2f;
+            for (float t = 0f; t < fade; t += Time.deltaTime)
             {
-                _fade.color = new Color(0f, 0f, 0f, Mathf.Lerp(0f, 1f, t / 2f));
+                _fade.color = new Color(0f, 0f, 0f, Mathf.Lerp(0f, 1f, t / fade));
                 yield return null;
             }
-            yield return new WaitForSeconds(0.6f);
+            if (!more) yield return new WaitForSeconds(0.6f);
             Say("");
             if (flow != null) flow.OnRoomCleared();
             else Restart();
@@ -346,15 +525,10 @@ namespace GJ.Game
 
         void Restart()
         {
+            LeaveBody();
             Time.timeScale = 1f;
             FirstPersonController.Frozen = false;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-        }
-
-        static string FormatTime(float seconds)
-        {
-            int s = Mathf.Max(0, Mathf.CeilToInt(seconds));
-            return $"{s / 60:00}:{s % 60:00}";
         }
 
         // ---------------------------------------------------------------- sound
@@ -371,14 +545,13 @@ namespace GJ.Game
             _muffle.cutoffFrequency = 22000f;
         }
 
-        // Heartbeat in the last 20 s of air: louder and faster as it runs out.
-        void UpdateHeart()
+        // Heartbeat while the body is short of air (urgency 0..1): louder and faster the worse it gets.
+        void UpdateHeart(float urgency)
         {
-            if (heartbeatClip == null || _air > 20f) return;
+            if (heartbeatClip == null || urgency <= 0f) return;
             if (Time.time < _nextBeat) return;
-            float k = Mathf.Clamp01(_air / 20f);
-            _heart.PlayOneShot(heartbeatClip, Mathf.Lerp(1f, 0.35f, k));
-            _nextBeat = Time.time + Mathf.Lerp(0.48f, 1.1f, k);
+            _heart.PlayOneShot(heartbeatClip, Mathf.Lerp(0.35f, 1f, urgency));
+            _nextBeat = Time.time + Mathf.Lerp(1.1f, 0.48f, urgency);
         }
 
         void UpdateAmbient()
@@ -472,14 +645,120 @@ namespace GJ.Game
             _noteText.lineSpacing = 1.1f;
             _paper.gameObject.SetActive(false);
 
-            _timer = MakeText(canvasGo.transform, font, 18, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(10, -6));
-            _attempt = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(11, -28));
+            // The breaths, as a row of little lungs: the pair being held empties from the top down, spent ones are left
+            // as faint outlines.
+            var airLabel = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(10, -9));
+            airLabel.text = "AIR";
+            airLabel.color = new Color(0.7f, 0.65f, 0.58f, 0.85f);
+            airLabel.gameObject.SetActive(!FreeAir);
+            var lungs = LungsSprite(false);
+            var outline = LungsSprite(true);
+            _pips = new Image[breaths];
+            _pipRings = new Image[breaths];
+            for (int i = 0; i < breaths; i++)
+            {
+                var at = new Vector2(30 + i * 17, -7);
+                _pipRings[i] = HudImage(canvasGo.transform, "BreathOutline", outline, new Vector2(0, 1), at, new Vector2(LungsW, LungsH));
+                _pips[i] = HudImage(canvasGo.transform, "Breath", lungs, new Vector2(0, 1), at, new Vector2(LungsW, LungsH));
+                _pips[i].type = Image.Type.Filled;
+                _pips[i].fillMethod = Image.FillMethod.Vertical;
+                _pips[i].fillOrigin = (int)Image.OriginVertical.Bottom;
+            }
+
+            _attempt = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(11, -24));
             _attempt.color = new Color(0.7f, 0.65f, 0.58f, 0.85f);
             _controls = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(-10, -8));
-            _controls.text = "[E] use   [F] lighter   [R] restart";
+            _controls.text = "[E] use   [F] lighter   [R] restart\n" + LetGoHint;
             _controls.lineSpacing = 1.2f;
             _prompt = MakeText(canvasGo.transform, font, 11, TextAnchor.LowerCenter, new Vector2(0.5f, 0), new Vector2(0, 18));
             _message = MakeText(canvasGo.transform, font, 14, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero);
+
+            // Letting go: a short bar over the prompt fills while Space is held.
+            var white = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 100f);
+            _holdText = MakeText(canvasGo.transform, font, 9, TextAnchor.LowerCenter, new Vector2(0.5f, 0), new Vector2(0, 42));
+            _holdText.text = "letting go...";
+            var holdBack = HudImage(_holdText.transform, "HoldBack", white, new Vector2(0.5f, 0), new Vector2(0, -6), new Vector2(64, 3));
+            holdBack.color = new Color(0f, 0f, 0f, 0.6f);
+            _holdBar = HudImage(_holdText.transform, "HoldBar", white, new Vector2(0.5f, 0), new Vector2(0, -6), new Vector2(64, 3));
+            _holdBar.type = Image.Type.Filled;
+            _holdBar.fillMethod = Image.FillMethod.Horizontal;
+            _holdBar.color = new Color(0.95f, 0.9f, 0.8f, 0.9f);
+            _holdText.gameObject.SetActive(false);
+        }
+
+        const string LetGoHint = "hold [SPACE] to let go";
+
+        static readonly Color LungColor = new Color(0.93f, 0.84f, 0.78f, 0.95f);
+        static readonly Color ChokeColor = new Color(1f, 0.3f, 0.22f, 1f);
+
+        void UpdatePips()
+        {
+            bool alive = _phase == Phase.Alive;
+            for (int i = 0; i < _pips.Length; i++)
+            {
+                // Pair i holds breath i+1: the rightmost goes first.
+                float fill = Mathf.Clamp01((_air - i * breathSeconds) / breathSeconds);
+                _pips[i].fillAmount = fill;
+                Color c = LungColor;
+                if (alive && i == _breath - 1)
+                    c = Color.Lerp(c, ChokeColor, Choke * (0.65f + 0.35f * Mathf.Sin(Time.time * 10f)));
+                _pips[i].color = c;
+                _pipRings[i].color = fill > 0f ? new Color(0.62f, 0.52f, 0.48f, 0.75f) : new Color(0.45f, 0.42f, 0.4f, 0.35f);
+            }
+
+            float hold = Mathf.Clamp01(_letGo / letGoSeconds);
+            bool showHold = alive && hold > 0.03f;
+            if (_holdText.gameObject.activeSelf != showHold) _holdText.gameObject.SetActive(showHold);
+            _holdBar.fillAmount = hold;
+        }
+
+        static Image HudImage(Transform parent, string name, Sprite sprite, Vector2 pivot, Vector2 offset, Vector2 size)
+        {
+            var image = new GameObject(name).AddComponent<Image>();
+            image.transform.SetParent(parent, false);
+            image.sprite = sprite;
+            image.raycastTarget = false;
+            var rt = image.rectTransform;
+            rt.anchorMin = rt.anchorMax = pivot;
+            rt.pivot = pivot;
+            rt.anchoredPosition = offset;
+            rt.sizeDelta = size;
+            return image;
+        }
+
+        const int LungsW = 13, LungsH = 12;
+
+        // A pair of lungs in pixels: two lobes, narrow at the top and broad at the base, hanging off the windpipe.
+        static bool InLungs(int x, int y)
+        {
+            float w = 2.4f + 0.5f * Mathf.Max(0f, 6f - y) / 6f;
+            float lx = (x - 3.2f) / w, rx = (x - 8.8f) / w, ly = (y - 3.8f) / 4.3f;
+            bool lobe = lx * lx + ly * ly <= 1f || rx * rx + ly * ly <= 1f;
+            bool windpipe = x == 6 && y >= 7;
+            bool bronchi = y == 7 && (x == 5 || x == 7);
+            return lobe || windpipe || bronchi;
+        }
+
+        // White, to be tinted: full lungs (solid outline, lighter inside), or only the outline of a spent breath.
+        static Sprite LungsSprite(bool outlineOnly)
+        {
+            var tex = new Texture2D(LungsW, LungsH, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            var px = new Color32[LungsW * LungsH];
+            for (int y = 0; y < LungsH; y++)
+                for (int x = 0; x < LungsW; x++)
+                {
+                    float a = 0f;
+                    if (InLungs(x, y))
+                    {
+                        bool edge = x == 0 || y == 0 || x == LungsW - 1 || y == LungsH - 1 ||
+                                    !InLungs(x - 1, y) || !InLungs(x + 1, y) || !InLungs(x, y - 1) || !InLungs(x, y + 1);
+                        a = edge || x == 6 ? 1f : outlineOnly ? 0f : 0.62f;
+                    }
+                    px[y * LungsW + x] = new Color(1f, 1f, 1f, a);
+                }
+            tex.SetPixels32(px);
+            tex.Apply(false);
+            return Sprite.Create(tex, new Rect(0, 0, LungsW, LungsH), new Vector2(0.5f, 0.5f), 100f);
         }
 
         // The sheet held up to read: yellowed, darker toward ragged edges, a fold, a coffee ring, a pinhole.

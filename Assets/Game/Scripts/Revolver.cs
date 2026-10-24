@@ -45,11 +45,27 @@ namespace GJ.Game
             BuildHud();
         }
 
+        // Carried in from an earlier room: owned, loaded as you left it, still holstered.
+        public void SyncFromSession()
+        {
+            if (!GameSession.HasRevolver) return;
+            Owned = true;
+            rounds = GameSession.Rounds;
+        }
+
         public void Give(int loaded)
         {
             Owned = true;
             rounds = loaded;
+            GameSession.HasRevolver = true;
+            GameSession.Rounds = rounds;
             Draw(true);
+        }
+
+        public void AddRounds(int count)
+        {
+            rounds += count;
+            GameSession.Rounds = rounds;
         }
 
         public void Holster() => Draw(false);
@@ -105,6 +121,7 @@ namespace GJ.Game
                 yield break;
             }
             rounds--;
+            GameSession.Rounds = rounds;
             if (audioSource != null && shotClip != null) audioSource.PlayOneShot(shotClip, 1f);
             _kick = 1f;
             muzzleFlash.SetActive(true);
