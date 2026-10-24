@@ -6,13 +6,15 @@ using UnityEngine.InputSystem;
 namespace GJ.Game
 {
     // Keeps the lighter hand alive: it lags behind the mouse, bobs with your steps, breathes when still and shakes
-    // when the air runs low. Lighting the Zippo is a full little act (thumb flicks the lid, rolls the wheel, a
+    // when the air runs low; the fingers shift on the case, now and then the index finger taps it, and they shake
+    // too. Lighting the Zippo is a full little act (the thumb lifts and flicks the lid, comes down on the wheel, a
     // spark, the flame catches, the fist squeezes), snapping it shut smothers the flame, and reaching for the fuse
     // dips the hand toward the floor.
     public class HandAnimator : MonoBehaviour
     {
         public CharacterController body;
-        public Transform fist;          // the hand mesh, squeezed a touch on each grip
+        public Transform[] fingers;     // index, middle, ring, pinky, three joints each, knuckle first; curl about X
+        public Transform[] thumb;       // base, middle, tip
         public Transform lid;
         public Transform wheel;
         public Transform spark;         // tiny glow shown for a frame or two when the wheel is struck
@@ -33,12 +35,15 @@ namespace GJ.Game
 
         Vector3 _restPos;
         Quaternion _restRot;
-        Vector3 _fistScale;
+        Quaternion[] _fingerRest, _thumbRest;
         Vector2 _swayNow;
         float _bobPhase;
         float _reach;          // 0..1 how far the hand dips toward the floor
         float _squeeze;        // 0..1 extra grip
         float _lower;          // 0..1 how far the hand has dropped out of view
+        float _thumbLift;      // 0..1 thumb up off the lighter, to flick the lid
+        float _thumbPress;     // 0..1 thumb rolled down hard on the wheel
+        float _tap, _nextTap = 3f;   // the index finger lifting off the case and dropping back, every few seconds
         Coroutine _act;
         System.Action _finishAct;  // lands the running act at once if it gets cut short
 
@@ -48,7 +53,15 @@ namespace GJ.Game
         {
             _restPos = transform.localPosition;
             _restRot = transform.localRotation;
-            if (fist != null) _fistScale = fist.localScale;
+            _fingerRest = RestOf(fingers);
+            _thumbRest = RestOf(thumb);
+        }
+
+        static Quaternion[] RestOf(Transform[] joints)
+        {
+            var rest = new Quaternion[joints != null ? joints.Length : 0];
+            for (int i = 0; i < rest.Length; i++) rest[i] = joints[i].localRotation;
+            return rest;
         }
 
         void OnEnable()
@@ -66,6 +79,8 @@ namespace GJ.Game
             _finishAct = null;
             _reach = 0f;
             _squeeze = 0f;
+            _thumbLift = 0f;
+            _thumbPress = 0f;
         }
 
         // Start dark (lid shut, no flame), then light up on our own.
@@ -104,26 +119,36 @@ namespace GJ.Game
             _finishAct = SetLit;
             if (delay > 0f) yield return new WaitForSeconds(delay);
 
-            // Thumb flicks the lid over: fast at first, then it bounces against the hinge.
+            // The thumb comes up off the case...
+            for (float t = 0f; t < 0.12f; t += Time.deltaTime)
+            {
+                _thumbLift = Mathf.SmoothStep(0f, 1f, t / 0.12f);
+                yield return null;
+            }
+            // ...and flicks the lid over: fast at first, then it bounces against the hinge.
             Play(lidClip, 0.9f);
             for (float t = 0f; t < 0.22f; t += Time.deltaTime)
             {
                 float k = t / 0.22f;
                 float overshoot = 1f + Mathf.Sin(k * Mathf.PI) * 0.12f;
                 if (lid != null) lid.localRotation = Quaternion.Euler(0f, 0f, LidOpen * Mathf.Min(1f, k * overshoot));
+                _thumbLift = 1f - k;
+                _thumbPress = k * 0.4f;
                 _squeeze = k;
                 yield return null;
             }
             if (lid != null) lid.localRotation = Quaternion.Euler(0f, 0f, LidOpen);
+            _thumbLift = 0f;
             yield return new WaitForSeconds(0.12f);
 
-            // Roll the wheel: a spark, and the wick catches.
+            // Roll the wheel down with the thumb: a spark, and the wick catches.
             Play(strikeClip, 1f);
             Quaternion wheelStart = wheel != null ? wheel.localRotation : Quaternion.identity;
             for (float t = 0f; t < 0.14f; t += Time.deltaTime)
             {
                 if (wheel != null) wheel.localRotation = wheelStart * Quaternion.Euler(0f, -900f * t, 0f);
                 if (spark != null) spark.gameObject.SetActive(t > 0.05f && t < 0.11f);
+                _thumbPress = Mathf.Lerp(0.4f, 1f, t / 0.14f);
                 _squeeze = 1f;
                 yield return null;
             }
@@ -133,10 +158,12 @@ namespace GJ.Game
             {
                 float k = t / 0.35f;
                 if (flame != null) flame.strength = Mathf.SmoothStep(0f, 1f, k) * (1f + Mathf.Sin(k * Mathf.PI) * 0.4f);
+                _thumbPress = 1f - k;
                 _squeeze = 1f - k;
                 yield return null;
             }
             if (flame != null) flame.strength = 1f;
+            _thumbPress = 0f;
             _squeeze = 0f;
             Lit = true;
             _finishAct = null;
@@ -155,10 +182,12 @@ namespace GJ.Game
                 if (lid != null) lid.localRotation = Quaternion.Euler(0f, 0f, LidOpen * (1f - k * k));
                 if (flame != null) flame.strength = Mathf.Clamp01(1f - k / 0.7f);
                 _squeeze = Mathf.Sin(k * Mathf.PI) * 0.7f;
+                _thumbLift = Mathf.Sin(k * Mathf.PI) * 0.6f;
                 yield return null;
             }
             SetUnlit();
             _squeeze = 0f;
+            _thumbLift = 0f;
             _finishAct = null;
             _act = null;
         }
@@ -216,10 +245,40 @@ namespace GJ.Game
             transform.localRotation = _restRot
                 * Quaternion.Euler(-_swayNow.y * 400f + _reach * 28f, _swayNow.x * 400f, -_swayNow.x * 300f + _reach * -10f);
 
-            if (fist != null)
+            AnimateFingers(dt);
+        }
+
+        // On top of the grip they were posed in, where the fingertips already rest on the case: each finger eases a
+        // little off it on its own slow wander (never further in), presses a touch harder when the hand squeezes,
+        // shakes with the rest of it when the air runs low, and while nothing else is going on the index finger lifts
+        // off the case and drops back every few seconds. The thumb lifts for the lid and rolls down on the wheel.
+        void AnimateFingers(float dt)
+        {
+            if (_act == null)
             {
-                float s = _squeeze * 0.05f;
-                fist.localScale = new Vector3(_fistScale.x * (1f - s), _fistScale.y, _fistScale.z * (1f - s * 0.6f));
+                _nextTap -= dt;
+                if (_nextTap <= 0f) { _tap = 1f; _nextTap = Random.Range(3.5f, 8f); }
+            }
+            _tap = Mathf.MoveTowards(_tap, 0f, dt * 2.5f);
+            float tapLift = Mathf.Sin(_tap * Mathf.PI) * 18f;
+            float now = Time.time;
+
+            for (int i = 0; i < _fingerRest.Length; i++)
+            {
+                int finger = i / 3, joint = i % 3;
+                float wander = -Mathf.PerlinNoise(now * 0.5f + finger * 3.7f, joint * 1.3f) * 7f;
+                float shake = Tremble > 0f ? -Mathf.PerlinNoise(now * 15f + finger * 2.1f, joint * 4.3f) * 14f * Tremble : 0f;
+                float grip = _squeeze * (joint == 0 ? 2f : 1f);
+                float tap = finger == 0 && joint < 2 ? -tapLift : 0f;
+                fingers[i].localRotation = _fingerRest[i] * Quaternion.Euler(wander + shake + grip + tap, 0f, 0f);
+            }
+
+            if (_thumbRest.Length == 3)
+            {
+                float rest = (Mathf.PerlinNoise(now * 0.4f, 7.7f) - 0.5f) * 5f;
+                thumb[0].localRotation = _thumbRest[0] * Quaternion.Euler(-25f * _thumbLift + 5f * _thumbPress, 0f, 0f);
+                thumb[1].localRotation = _thumbRest[1] * Quaternion.Euler(rest - 35f * _thumbLift + 20f * _thumbPress, 0f, 0f);
+                thumb[2].localRotation = _thumbRest[2] * Quaternion.Euler(rest - 35f * _thumbLift + 25f * _thumbPress, 0f, 0f);
             }
         }
 

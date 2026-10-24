@@ -36,11 +36,13 @@ namespace GJ.PSX.EditorTools
         static Renderer _displayDigits;
         static List<Vector3> _fusePath;
 
+        // The main menu is set in room 1, so it is rebuilt along with it.
         [MenuItem("GJ/Build PSX Room")]
         public static void Build()
         {
             if (!BeginBuild()) return;
             BuildRoom1();
+            BuildMenu();
             FinishBuild();
         }
 
@@ -67,6 +69,7 @@ namespace GJ.PSX.EditorTools
             BuildRoom3();
             BuildRoom2();
             BuildRoom1();
+            BuildMenu();
             FinishBuild();
         }
 
@@ -121,23 +124,20 @@ namespace GJ.PSX.EditorTools
             puzzle.fuse = _fuse;
             puzzle.bucket = GameObject.Find("Room01/Props/Bucket")?.transform;
             puzzle.shoveClip = PSXSoundGenerator.Load("clunk");
-            BuildDirector(rig, puzzle, 90f, "find a way out\nyou have 90 seconds of air", 1, "Room02",
-                new[] { new Vector3(-0.4f, 0.35f, 1.2f), new Vector3(2.3f, 2.6f, 0.6f), new Vector3(-1.6f, 1.5f, 5.6f) },
-                new[] { new Vector3(-6f, 8f, 0f), new Vector3(24f, -32f, 0f), new Vector3(8f, 40f, 0f) });
-            var stage = BuildStoryStage();
-            UnityEngine.Object.FindFirstObjectByType<Game.GameFlow>().stage = stage;
+            BuildDirector(rig, puzzle, 90f, "find a way out\nyou have 90 seconds of air", 1, "Room02");
             SetupRenderSettings();
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("PSX room built: " + ScenePath);
         }
 
-        // Room 1 first (the title lives there, and "main menu" loads build index 0), room 2 after it.
+        // The main menu first (the game starts there), then the rooms in order. Scenes that no longer exist drop out.
         static void FinishBuild()
         {
+            var order = new[] { MenuPath, ScenePath, Scene2Path, Scene3Path };
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
-            scenes.RemoveAll(s => s.path == ScenePath || s.path == Scene2Path || s.path == Scene3Path);
+            scenes.RemoveAll(s => System.Array.IndexOf(order, s.path) >= 0 || !File.Exists(s.path));
             int at = 0;
-            foreach (var path in new[] { ScenePath, Scene2Path, Scene3Path })
+            foreach (var path in order)
                 if (File.Exists(path)) scenes.Insert(at++, new EditorBuildSettingsScene(path, true));
             EditorBuildSettings.scenes = scenes.ToArray();
             AssetDatabase.SaveAssets();
@@ -1874,18 +1874,7 @@ namespace GJ.PSX.EditorTools
             head.SetParent(player.transform, false);
             head.localPosition = new Vector3(0, 1.55f, 0);
             head.localRotation = Quaternion.Euler(12f, 0, 0);
-            var cam = head.gameObject.AddComponent<Camera>();
-            cam.tag = "MainCamera";
-            cam.fieldOfView = 68f;
-            cam.nearClipPlane = 0.03f;
-            cam.farClipPlane = 40f;
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = Color.black;
-            head.gameObject.AddComponent<AudioListener>();
-            var screen = head.gameObject.AddComponent<PSX.PSXScreen>();
-            screen.screenMaterial = ScreenMaterial();
-            screen.enabled = false; // OnEnable already ran without the material; rebuild the output with it
-            screen.enabled = true;
+            MakeEye(head.gameObject);
 
             var fpc = player.AddComponent<PSX.FirstPersonController>();
             fpc.head = head;
@@ -1901,16 +1890,16 @@ namespace GJ.PSX.EditorTools
             // Open right palm toward the camera, lighter pinched in front of it: fingers point left and curl toward
             // the camera round the lighter's left side (nails showing), the thumb comes up on the right to the wheel,
             // the forearm runs down-right out of view. Same pose as the team's reference frame.
-            Arm(LighterGrip, hand);
+            var arm = Arm(LighterGrip, hand);
 
-            // Zippo sitting in the curled fingers: rounded-corner case, inner insert, perforated chimney, wheel,
-            // and the lid swung open on its left-hand hinge.
+            // Zippo standing in the curled fingers, turned a little to show its face: rounded-corner case, inner insert,
+            // perforated chimney, wheel, and the lid swung open on its left-hand hinge.
             var zippo = new GameObject("Zippo").transform;
             zippo.SetParent(hand, false);
-            zippo.localPosition = new Vector3(-0.012f, 0f, -0.028f);
-            // A third bigger than life, like in the reference: at true size the fist swallowed it and the fingertips
-            // hung in the air in front of it; this way they land on its face and the thumb on its edge.
-            zippo.localScale = Vector3.one * 1.3f;
+            zippo.localPosition = new Vector3(0.02f, 0f, -0.02f);
+            zippo.localRotation = Quaternion.Euler(0f, -25f, 0f);
+            // A tenth bigger than life, so it still reads at PS1 resolution; LighterGrip is fitted round this size.
+            zippo.localScale = Vector3.one * 1.1f;
             var caseMb = new MeshBuilder();
             caseMb.ChamferBox(new Vector3(0, 0.0125f, 0), new Vector3(0.038f, 0.045f, 0.013f), 0.004f);
             caseMb.ChamferBox(new Vector3(0, 0.0395f, 0), new Vector3(0.034f, 0.01f, 0.011f), 0.002f);
@@ -1969,7 +1958,8 @@ namespace GJ.PSX.EditorTools
             handAudio.spatialBlend = 0f;
             var anim = hand.gameObject.AddComponent<Game.HandAnimator>();
             anim.body = cc;
-            anim.fist = hand.Find("Hand");
+            anim.fingers = arm.fingers;
+            anim.thumb = arm.thumb;
             anim.lid = lidGo.transform;
             anim.wheel = wheelGo.transform;
             anim.spark = flintSpark.transform;
@@ -1982,10 +1972,41 @@ namespace GJ.PSX.EditorTools
             return new PlayerRig { controller = fpc, head = head, hand = hand, animator = anim, lighterLight = lighterLight };
         }
 
-        // The room's rules (air timer, death, revival, restart) and everything round it (title, story, pause, end
-        // card). The title drifts through the given shots of the room.
-        static void BuildDirector(PlayerRig rig, Game.RoomPuzzle puzzle, float air, string startMessage, int room, string nextScene,
-                                  Vector3[] shotPositions, Vector3[] shotAngles)
+        // The eye: the main camera, drawn through the low-res PSX screen, and the ears.
+        static Camera MakeEye(GameObject go)
+        {
+            var cam = go.AddComponent<Camera>();
+            cam.tag = "MainCamera";
+            cam.fieldOfView = 68f;
+            cam.nearClipPlane = 0.03f;
+            cam.farClipPlane = 40f;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = Color.black;
+            go.AddComponent<AudioListener>();
+            var screen = go.AddComponent<PSX.PSXScreen>();
+            screen.screenMaterial = ScreenMaterial();
+            screen.enabled = false; // OnEnable already ran without the material; rebuild the output with it
+            screen.enabled = true;
+            return cam;
+        }
+
+        // The TV and its menus, music and sounds, looking through the given eye.
+        static Game.GameFlow BuildFlow(Transform head)
+        {
+            var flow = new GameObject("GameFlow").AddComponent<Game.GameFlow>();
+            flow.head = head;
+            flow.humClip = PSXSoundGenerator.Load("bunker_hum");
+            flow.moveClip = PSXSoundGenerator.Load("ui_move");
+            flow.pickClip = PSXSoundGenerator.Load("ui_pick");
+            flow.typeClip = PSXSoundGenerator.Load("type_tick");
+            flow.staticClip = PSXSoundGenerator.Load("tv_static");
+            flow.titleMusic = PSXSoundGenerator.Load("music_title");
+            flow.roomMusic = PSXSoundGenerator.Load("music_room");
+            return flow;
+        }
+
+        // The room's rules (air timer, death, revival, restart) and everything round it (pause, settings, end card).
+        static void BuildDirector(PlayerRig rig, Game.RoomPuzzle puzzle, float air, string startMessage, int room, string nextScene)
         {
             var director = new GameObject("RoomDirector").AddComponent<Game.RoomDirector>();
             director.airSeconds = air;
@@ -2006,22 +2027,12 @@ namespace GJ.PSX.EditorTools
             director.gaspClip = PSXSoundGenerator.Load("gasp");
             director.ambientClips = new[] { PSXSoundGenerator.Load("drip"), PSXSoundGenerator.Load("drip"), PSXSoundGenerator.Load("rumble") };
 
-            var flow = new GameObject("GameFlow").AddComponent<Game.GameFlow>();
+            var flow = BuildFlow(rig.head);
             flow.director = director;
             flow.controller = rig.controller;
-            flow.head = rig.head;
             flow.hand = rig.hand.gameObject;
             flow.room = room;
             flow.nextScene = nextScene;
-            flow.shotPositions = shotPositions;
-            flow.shotAngles = shotAngles;
-            flow.humClip = PSXSoundGenerator.Load("bunker_hum");
-            flow.moveClip = PSXSoundGenerator.Load("ui_move");
-            flow.pickClip = PSXSoundGenerator.Load("ui_pick");
-            flow.typeClip = PSXSoundGenerator.Load("type_tick");
-            flow.staticClip = PSXSoundGenerator.Load("tv_static");
-            flow.titleMusic = PSXSoundGenerator.Load("music_title");
-            flow.roomMusic = PSXSoundGenerator.Load("music_room");
             director.flow = flow;
         }
 

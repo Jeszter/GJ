@@ -18,6 +18,7 @@ namespace GJ.Game
         public GameObject muzzleFlash;
         public Light muzzleLight;
         public HandAnimator lighterHand;
+        public Transform[] trigger;       // the index finger's joints, knuckle first: they curl in on each shot
         public Camera eye;
         public AudioSource audioSource;
         public AudioClip shotClip, clickClip, drawClip;
@@ -27,7 +28,8 @@ namespace GJ.Game
         public bool Drawn { get; private set; }
 
         Vector3 _rest;
-        float _raise, _kick;
+        float _raise, _kick, _pull;
+        Quaternion[] _triggerRest;
         Text _ammo;
         Image _dot;
         bool _busy;
@@ -35,6 +37,8 @@ namespace GJ.Game
         void Awake()
         {
             _rest = viewModel.localPosition;
+            _triggerRest = new Quaternion[trigger != null ? trigger.Length : 0];
+            for (int i = 0; i < _triggerRest.Length; i++) _triggerRest[i] = trigger[i].localRotation;
             muzzleFlash.SetActive(false);
             muzzleLight.enabled = false;
             viewModel.gameObject.SetActive(false);
@@ -67,6 +71,10 @@ namespace GJ.Game
         {
             _raise = Mathf.MoveTowards(_raise, Drawn ? 1f : 0f, Time.deltaTime * 4f);
             _kick = Mathf.MoveTowards(_kick, 0f, Time.deltaTime * 6f);
+            // The trigger finger squeezes in and eases back out after each shot.
+            _pull = Mathf.MoveTowards(_pull, 0f, Time.deltaTime * 5f);
+            for (int i = 0; i < _triggerRest.Length; i++)
+                trigger[i].localRotation = _triggerRest[i] * Quaternion.Euler(_pull * (i == 0 ? 18f : 28f), 0f, 0f);
             float r = Mathf.SmoothStep(0f, 1f, _raise);
             viewModel.localPosition = _rest + Vector3.down * 0.3f * (1f - r) + new Vector3(0f, 0.015f, -0.05f) * _kick;
             viewModel.localRotation = Quaternion.Euler(-25f * _kick, 0f, 0f);
@@ -88,6 +96,7 @@ namespace GJ.Game
         IEnumerator Fire()
         {
             _busy = true;
+            _pull = 1f;
             if (rounds <= 0)
             {
                 if (audioSource != null && clickClip != null) audioSource.PlayOneShot(clickClip, 0.9f);

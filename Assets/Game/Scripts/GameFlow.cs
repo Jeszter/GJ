@@ -9,13 +9,17 @@ namespace GJ.Game
 {
     // Everything around the room itself: the title screen (slow camera drifts through the dark room), the illustrated
     // typewriter backstory, pause and settings menus, and the card shown when a room is cleared. All of it plays on an
-    // old TV set that clicks on at the start and zooms away into the game. Restarting a room skips straight back into
-    // play; "main menu" goes back to the first room's title.
+    // old TV set that clicks on at the start and zooms away into the game. The title and the story live in the main
+    // menu scene, which has no player (no director); a room always opens straight into play, diving in through the
+    // TV's glass, and "main menu" goes back to that scene.
     public class GameFlow : MonoBehaviour
     {
         enum State { Title, Intro, Playing, Paused, End }
 
-        public RoomDirector director;
+        const string MenuScene = "MainMenu";
+        const string FirstRoom = "Room01";
+
+        public RoomDirector director;      // none in the main menu
         public StoryStage stage;           // 3D sets filmed for the story cards; the painted plates are the fallback
         public FirstPersonController controller;
         public Transform head;
@@ -97,17 +101,16 @@ namespace GJ.Game
             _titleMusic = MusicSource(titleMusic, true);
             _roomMusic = MusicSource(roomMusic, false);
 
-            // Later rooms are only ever reached from the one before (or straight from the editor): no title there.
-            if (GameSession.SkipTitle || room > 1)
-            {
-                GameSession.SkipTitle = false;
-                Shader.SetGlobalFloat(TvOffId, 0f);
-                BeginPlay(false);
-            }
-            else
+            if (director == null)
             {
                 ShowTitle();
                 StartCoroutine(PowerOn());
+            }
+            else
+            {
+                Shader.SetGlobalFloat(TvOffId, 0f);
+                BeginPlay(GameSession.FromStory);
+                GameSession.FromStory = false;
             }
         }
 
@@ -162,10 +165,10 @@ namespace GJ.Game
 
         void SetPlayActive(bool on)
         {
-            director.enabled = on;
-            controller.enabled = on;
+            if (director != null) director.enabled = on;
+            if (controller != null) controller.enabled = on;
             FirstPersonController.Frozen = !on;
-            hand.SetActive(on);
+            if (hand != null) hand.SetActive(on);
             Cursor.lockState = on ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !on;
         }
@@ -226,7 +229,9 @@ namespace GJ.Game
             _story.text = "";
             _hint.text = "";
             Snow(1f);
-            BeginPlay(true);
+            // On into the first room, which opens on the TV and dives in through the glass.
+            GameSession.FromStory = true;
+            LoadScene(FirstRoom);
         }
 
         // Types one card out, holds it a moment and moves on by itself; a key finishes the typing or moves on sooner.
@@ -356,25 +361,20 @@ namespace GJ.Game
             Open(last ? _endMenu : _nextMenu);
         }
 
-        static void LoadScene(string scene, bool skipTitle)
+        static void LoadScene(string scene)
         {
-            GameSession.SkipTitle = skipTitle;
             Time.timeScale = 1f;
             AudioListener.pause = false;
             FirstPersonController.Frozen = false;
             SceneManager.LoadScene(scene);
         }
 
-        static void RestartRoom() => LoadScene(SceneManager.GetActiveScene().name, true);
+        static void RestartRoom() => LoadScene(SceneManager.GetActiveScene().name);
 
-        // The title lives in the first room of the build.
         static void MainMenu()
         {
-            Time.timeScale = 1f;
-            AudioListener.pause = false;
-            FirstPersonController.Frozen = false;
-            GameSession.SkipTitle = false;
-            SceneManager.LoadScene(0);
+            GameSession.FromStory = false;
+            LoadScene(MenuScene);
         }
 
         IEnumerator Quit()
@@ -653,11 +653,11 @@ namespace GJ.Game
             _settingsMenu.Add("BACK", CloseSettings);
 
             _nextMenu = new PsxMenu(root, cam, _font, new Vector2(0, -62), 12, 17, _ui, moveClip, pickClip);
-            _nextMenu.Add("NEXT ROOM", () => LoadScene(nextScene, true));
+            _nextMenu.Add("NEXT ROOM", () => LoadScene(nextScene));
             _nextMenu.Add("MAIN MENU", MainMenu);
 
             _endMenu = new PsxMenu(root, cam, _font, new Vector2(0, -62), 12, 17, _ui, moveClip, pickClip);
-            _endMenu.Add("PLAY AGAIN", () => { GameSession.Reset(); GameSession.SkipTitle = true; SceneManager.LoadScene(0); });
+            _endMenu.Add("PLAY AGAIN", () => { GameSession.Reset(); LoadScene(FirstRoom); });
             _endMenu.Add("MAIN MENU", MainMenu);
 
             Open(null);

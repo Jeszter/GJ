@@ -52,10 +52,10 @@ namespace GJ.Game
         }
     }
 
-    // What survives a room reload: whether to skip the title, and the run's stats.
+    // What survives a scene load: whether the room is opening straight after the story, and the run's stats.
     public static class GameSession
     {
-        public static bool SkipTitle;
+        public static bool FromStory;
         public static int Deaths;
         public static float Time;
 

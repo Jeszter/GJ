@@ -53,8 +53,7 @@ namespace GJ.PSX.EditorTools
             var rig = BuildPlayer(new Vector3(0.4f, 0f, 0.9f), 0f);
             var revolver = BuildRevolver(rig);
             puzzle.revolver = revolver;
-            BuildDirector(rig, puzzle, 60f, "SECTOR 4 - ARMORY\nyou have 60 seconds of air", 3, "",
-                new[] { new Vector3(0.5f, 1.6f, 1f) }, new[] { new Vector3(5f, -15f, 0f) });
+            BuildDirector(rig, puzzle, 60f, "SECTOR 4 - ARMORY\nyou have 60 seconds of air", 3, "");
             UnityEngine.Object.FindFirstObjectByType<Game.RoomDirector>().revolver = revolver;
 
             RenderSettings.ambientMode = AmbientMode.Flat;
@@ -136,8 +135,8 @@ namespace GJ.PSX.EditorTools
             gun.localScale = Vector3.one * 1.2f;
             var (cyl, hammer, muzzle) = RevolverModel(gun);
 
-            // The right arm round the grip (see RevolverGrip).
-            Arm(RevolverGrip, gun);
+            // The right arm round the grip (see RevolverGrip); its index finger pulls the trigger.
+            var arm = Arm(RevolverGrip, gun);
 
             var flashMb = new MeshBuilder();
             flashMb.Cross(new Vector3(0, -0.03f, 0), 0.07f, 0.07f);
@@ -161,6 +160,7 @@ namespace GJ.PSX.EditorTools
             r.muzzleFlash = flash;
             r.muzzleLight = light;
             r.lighterHand = rig.animator;
+            r.trigger = new[] { arm.fingers[0], arm.fingers[1], arm.fingers[2] };
             r.eye = rig.head.GetComponent<Camera>();
             r.audioSource = audio;
             r.shotClip = PSXSoundGenerator.Load("gunshot");

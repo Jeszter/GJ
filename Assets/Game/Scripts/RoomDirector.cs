@@ -336,7 +336,6 @@ namespace GJ.Game
         void Restart()
         {
             Time.timeScale = 1f;
-            GameSession.SkipTitle = true;
             FirstPersonController.Frozen = false;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
