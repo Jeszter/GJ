@@ -74,6 +74,62 @@ namespace GJ.PSX.EditorTools
             File.WriteAllText(LogPath, Log.ToString());
         }
 
+        [MenuItem("GJ/Debug/Lighter State")]
+        public static void LighterState()
+        {
+            Application.runInBackground = true;
+            var anim = UnityEngine.Object.FindFirstObjectByType<Game.HandAnimator>(FindObjectsInactive.Include);
+            var d = UnityEngine.Object.FindFirstObjectByType<Game.RoomDirector>();
+            var light = d != null ? d.lighterLight : null;
+            var flicker = anim != null ? anim.flame : null;
+            string line = $"frame={Time.frameCount} hand active={anim?.gameObject.activeInHierarchy} enabled={anim?.enabled} lit={anim?.Lit} lowered={anim?.Lowered} act={Get(anim, "_act") != null} " +
+                          $"flame strength={flicker?.strength} flameObj active={flicker?.gameObject.activeInHierarchy} scale={flicker?.transform.localScale} " +
+                          $"light enabled={light?.enabled} intensity={light?.intensity} range={light?.range} phase={Get(d, "_phase")} frozen={GJ.PSX.FirstPersonController.Frozen}";
+            File.AppendAllText(LogPath, line + System.Environment.NewLine);
+        }
+
+        [MenuItem("GJ/Debug/Near Camera")]
+        public static void NearCamera()
+        {
+            var cam = Camera.main;
+            var anim = UnityEngine.Object.FindFirstObjectByType<Game.HandAnimator>(FindObjectsInactive.Include);
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"cam pos={cam.transform.position:F3} rot={cam.transform.eulerAngles:F1} near={cam.nearClipPlane} fov={cam.fieldOfView}");
+            sb.AppendLine($"hand local={anim.transform.localPosition:F3} world={anim.transform.position:F3} rest={Get(anim, "_restPos")}");
+            foreach (var r in UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+            {
+                float d = Vector3.Distance(r.bounds.ClosestPoint(cam.transform.position), cam.transform.position);
+                if (d < 0.7f && r.enabled && r.gameObject.activeInHierarchy)
+                    sb.AppendLine($"  {d:F2} {GetPath(r.transform)} mat={r.sharedMaterial?.name}");
+            }
+            File.AppendAllText(LogPath, sb.ToString());
+        }
+
+        static string GetPath(Transform t) => t.parent == null ? t.name : GetPath(t.parent) + "/" + t.name;
+
+        [MenuItem("GJ/Debug/Hand Renderers")]
+        public static void HandRenderers()
+        {
+            var anim = UnityEngine.Object.FindFirstObjectByType<Game.HandAnimator>(FindObjectsInactive.Include);
+            var sb = new System.Text.StringBuilder();
+            foreach (var r in anim.GetComponentsInChildren<Renderer>(true))
+            {
+                var mf = r.GetComponent<MeshFilter>();
+                var mesh = mf != null ? mf.sharedMesh : null;
+                sb.AppendLine($"{GetPath(r.transform)} enabled={r.enabled} active={r.gameObject.activeInHierarchy} visible={r.isVisible} layer={r.gameObject.layer} " +
+                              $"mesh={(mesh != null ? mesh.name + " v" + mesh.vertexCount + " " + AssetDatabase.GetAssetPath(mesh) : "NULL")} mat={r.sharedMaterial?.name}/{r.sharedMaterial?.shader.name} bounds={r.bounds.center:F2} {r.bounds.size:F3}");
+            }
+            File.AppendAllText(LogPath, sb.ToString());
+        }
+
+        [MenuItem("GJ/Debug/Lighter Toggle")]
+        public static void LighterToggle()
+        {
+            var anim = UnityEngine.Object.FindFirstObjectByType<Game.HandAnimator>(FindObjectsInactive.Include);
+            anim.Toggle();
+            File.AppendAllText(LogPath, "toggle" + System.Environment.NewLine);
+        }
+
         static void Tick()
         {
             if (!EditorApplication.isPlaying) { Finish("stopped"); return; }

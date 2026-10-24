@@ -152,6 +152,12 @@ namespace GJ.PSX.EditorTools
                 Block("Guard", "Steel", glassPos + off + new Vector3(0, 1.38f, 0), new Vector3(0.012f, 1.38f, 0.012f), default, 4f, works);
             Block("GlassCap_Low", "DarkMetal", glassPos + new Vector3(0, 0.68f, 0), new Vector3(0.09f, 0.04f, 0.09f), default, 4f, works);
             Block("GlassCap_High", "DarkMetal", glassPos + new Vector3(0, 2.07f, 0), new Vector3(0.09f, 0.04f, 0.09f), default, 4f, works);
+            // Two short pipe stubs from the tank wall into the glass caps: the glass is plumbed to the tank.
+            var radial = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang));
+            var stubs = new MeshBuilder();
+            foreach (float y in new[] { 0.68f, 2.07f })
+                stubs.Tube(TankBase + radial * (TankRadius - 0.02f) + Vector3.up * y, glassPos + Vector3.up * y, 0.018f, 0.018f, 6, Vector3.up, 4f);
+            Place("GlassStubs", stubs, "Steel", Vector3.zero, default, works);
 
             // Outlet: out of the tank, up, across, and down to the spout over the chute pivot. The valve sits on the
             // climb, its wheel facing the room.

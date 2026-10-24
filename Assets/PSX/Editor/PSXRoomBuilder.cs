@@ -1491,8 +1491,7 @@ namespace GJ.PSX.EditorTools
             GasBracket(new Vector3(RoomMin.x, 0.95f, 3.27f), 0.68f, props);
 
             // Fire extinguisher and a warning sign.
-            Cyl("Extinguisher", "RedPaint", new Vector3(-2.82f, 0.55f, 5.1f), 0.08f, 0.5f, 8, default, 1f, props);
-            Block("ExtinguisherHook", "DarkMetal", new Vector3(-2.94f, 1.0f, 5.1f), new Vector3(0.06f, 0.1f, 0.12f), default, 1f, props);
+            Extinguisher(new Vector3(RoomMin.x, 0.5f, 5.1f), 90f, props);
             var sign = new MeshBuilder();
             sign.Quad(new Vector3(0, 0, -0.25f), new Vector3(0, 0, 0.5f), new Vector3(0, 0.5f, 0), 2f);
             Place("WarningSign", sign, "Sign", new Vector3(-2.97f, 1.55f, 2.2f), default, props);
@@ -1709,6 +1708,38 @@ namespace GJ.PSX.EditorTools
             var foot = new MeshBuilder();
             OpenDrum(foot, Vector3.zero, r + 0.012f, 0.06f, 14, 0.01f, 2f);
             Place("FootRing", foot, "DarkMetal", Vector3.zero, default, g);
+        }
+
+        // A fire extinguisher on its wall bracket (the group sits on the wall, facing +Z into the room): red body with
+        // a domed top, the valve head with its lever, a hose down to the nozzle in a clip, a label and a strap.
+        static void Extinguisher(Vector3 wallPoint, float yaw, Transform parent)
+        {
+            var g = Group("Extinguisher", wallPoint, yaw, parent);
+            const float r = 0.075f, h = 0.46f, gap = 0.012f;
+            float z = r + gap + 0.02f;
+            Block("BackPlate", "DarkMetal", new Vector3(0, 0.36f, 0.01f), new Vector3(0.1f, 0.22f, 0.02f), default, 4f, g);
+            Block("Hook", "DarkMetal", new Vector3(0, 0.46f, z - r - 0.005f), new Vector3(0.05f, 0.03f, 0.04f), default, 4f, g);
+            Cyl("Body", "RedPaint", new Vector3(0, 0f, z), r, h, 12, default, 1f, g);
+            var dome = new MeshBuilder();
+            dome.Tube(new Vector3(0, h, z), new Vector3(0, h + 0.05f, z), r, 0.025f, 12, Vector3.forward, 2f);
+            Place("Dome", dome, "RedPaint", Vector3.zero, default, g);
+            Cyl("Strap", "DarkMetal", new Vector3(0, 0.33f, z), r + 0.004f, 0.025f, 12, default, 2f, g);
+            Cyl("Neck", "Chrome", new Vector3(0, h + 0.05f, z), 0.018f, 0.03f, 8, default, 4f, g);
+            Block("ValveHead", "Chrome", new Vector3(0, h + 0.09f, z), new Vector3(0.04f, 0.035f, 0.05f), default, 6f, g);
+            Block("Lever", "Chrome", new Vector3(0, h + 0.115f, z + 0.03f), new Vector3(0.025f, 0.008f, 0.09f), new Vector3(-12, 0, 0), 6f, g);
+            Block("Handle", "DarkMetal", new Vector3(0, h + 0.075f, z + 0.035f), new Vector3(0.025f, 0.008f, 0.07f), default, 6f, g);
+            Cyl("Gauge", "Gauge", new Vector3(0.022f, h + 0.09f, z), 0.012f, 0.006f, 8, new Vector3(0, 0, -90), 1f / 0.024f, g);
+            var hose = new MeshBuilder();
+            Vector3 prev = new Vector3(0.025f, h + 0.08f, z + 0.02f);
+            foreach (var p in new[] { new Vector3(0.06f, h + 0.02f, z + 0.03f), new Vector3(0.085f, h - 0.15f, z + 0.02f), new Vector3(0.085f, h - 0.3f, z + 0.005f) })
+            {
+                hose.Tube(prev, p, 0.009f, 0.009f, 6, Vector3.forward, 4f);
+                prev = p;
+            }
+            Place("Hose", hose, "Rubber", Vector3.zero, default, g);
+            Cyl("Nozzle", "Rubber", new Vector3(0.085f, h - 0.36f, z + 0.005f), 0.013f, 0.06f, 6, default, 4f, g);
+            Block("NozzleClip", "DarkMetal", new Vector3(0.07f, h - 0.33f, z), new Vector3(0.03f, 0.02f, 0.02f), default, 6f, g);
+            Plate("Label", "Notice", new Vector3(0, 0.2f, z + r + 0.003f), 0.09f, 0.12f, Vector3.forward, g);
         }
 
         // Wall bracket holding the cylinders: two arms out from the wall and a sagging chain across them.

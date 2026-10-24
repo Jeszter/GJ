@@ -517,9 +517,9 @@ namespace GJ.PSX.EditorTools
             // By the drain: a mop and pail; sandbags against the door wall; a clock over the crates.
             Mop(new Vector3(-3.22f, 0f, 3.55f), -90f, d);
             Model("Survival/bucket", new Vector3(-2.95f, 0f, 3.75f), 30f, 0.32f, d);
-            Sack(new Vector3(-2.65f, 0.11f, 7.15f), 5f, d);
-            Sack(new Vector3(-2.75f, 0.11f, 6.75f), -10f, d);
-            Sack(new Vector3(-2.68f, 0.35f, 6.95f), 2f, d, -3f);
+            Sack(new Vector3(-2.65f, 0f, 7.15f), 5f, d);
+            Sack(new Vector3(-2.75f, 0f, 6.75f), -10f, d);
+            Sack(new Vector3(-2.68f, 0.21f, 6.95f), 2f, d, -3f);
             Clock(new Vector3(2.3f, 2.4f, RoomMax.z), 180f, d);
             FirstAid(new Vector3(2.95f, 1.6f, RoomMax.z), 180f, d);
             PaintCan(new Vector3(-3.2f, 0.38f, 5.2f), 0f, "PaintGreen", d);

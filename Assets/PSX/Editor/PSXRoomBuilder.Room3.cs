@@ -136,22 +136,68 @@ namespace GJ.PSX.EditorTools
             gun.localScale = Vector3.one * 1.2f;
             var (cyl, hammer, muzzle) = RevolverModel(gun);
 
-            // Fist round the grip: palm, three fingers wrapped across the front, index on the trigger, thumb over.
+            // A right fist round the grip, laid out from the grip's own shape (see RevolverModel) so nothing sinks into
+            // the gun: the palm on the grip's right side and back strap, three fingers wrapped round the front strap
+            // with their tips on the left side, the index finger along the right of the frame into the trigger guard,
+            // the thumb along the left of the frame under the cylinder, the wrist running back to the sleeve.
+            Vector3 gTop = new Vector3(0, 0.022f, -0.035f), gBottom = new Vector3(0, -0.055f, -0.062f);
+            Vector3 along = (gBottom - gTop).normalized;
+            Vector3 front = Vector3.Cross(along, Vector3.right).normalized;   // across the grip, toward the trigger
+            Vector3 R = Vector3.right;
+            Vector3 GripAt(float s) => Vector3.Lerp(gTop, gBottom, s);
+            float HalfW(float s) => Mathf.Lerp(0.012f, 0.013f, s);
+            float HalfD(float s) => Mathf.Lerp(0.017f, 0.02f, s);
             var skin = new MeshBuilder();
-            skin.Limb(new Vector3(0.016f, 0.0f, -0.05f), new Vector3(0.018f, -0.06f, -0.07f), 0.022f, 0.05f, 0.026f, 0.055f, Vector3.forward, 4f);
+            // Palm on the right side, and its heel round the back strap.
+            skin.Limb(GripAt(0.04f) + R * (HalfW(0.04f) + 0.011f), GripAt(0.95f) + R * (HalfW(0.95f) + 0.012f) - front * 0.004f,
+                      0.018f, 0.046f, 0.02f, 0.05f, front, 4f);
+            skin.Limb(GripAt(0.1f) - front * (HalfD(0.1f) + 0.009f) + R * 0.004f, GripAt(0.97f) - front * (HalfD(0.97f) + 0.01f) + R * 0.004f,
+                      0.03f, 0.016f, 0.032f, 0.018f, front, 4f);
+            // Middle, ring and little finger round the front strap.
+            float[] at = { 0.3f, 0.52f, 0.74f };
+            float[] rad = { 0.0085f, 0.0082f, 0.0072f };
             for (int i = 0; i < 3; i++)
             {
-                float y = -0.012f - i * 0.016f, z = -0.03f - i * 0.006f;
-                skin.Tube(new Vector3(0.018f, y, z - 0.012f), new Vector3(0.016f, y, z + 0.016f), 0.0085f, 0.008f, 6, Vector3.up, 4f);
-                skin.Tube(new Vector3(0.016f, y, z + 0.016f), new Vector3(-0.014f, y - 0.002f, z + 0.02f), 0.008f, 0.0075f, 6, Vector3.up, 4f);
+                Vector3 c = GripAt(at[i]);
+                float hw = HalfW(at[i]), hd = HalfD(at[i]), fr = rad[i];
+                var pts = new[]
+                {
+                    c + R * (hw + fr + 0.002f) - front * (hd * 0.2f),
+                    c + R * (hw + fr * 0.75f) + front * (hd + fr * 0.75f),
+                    c - R * (hw * 0.2f) + front * (hd + fr + 0.0025f),
+                    c - R * (hw + fr * 0.75f) + front * (hd + fr * 0.75f),
+                    c - R * (hw + fr + 0.001f) + front * (hd * 0.35f)
+                };
+                for (int k = 0; k < pts.Length - 1; k++)
+                    skin.Tube(pts[k], pts[k + 1], fr * (1f - k * 0.04f), fr * (1f - (k + 1) * 0.04f), 6, Vector3.up, 4f);
             }
-            skin.Tube(new Vector3(0.018f, 0.008f, -0.03f), new Vector3(0.012f, 0.006f, 0.004f), 0.008f, 0.0075f, 6, Vector3.up, 4f);
-            skin.Tube(new Vector3(0.012f, 0.006f, 0.004f), new Vector3(0.002f, 0.0f, -0.003f), 0.0072f, 0.0068f, 6, Vector3.up, 4f);
-            skin.Tube(new Vector3(-0.012f, 0.012f, -0.05f), new Vector3(-0.014f, 0.032f, -0.03f), 0.01f, 0.009f, 6, Vector3.up, 4f);
-            skin.Tube(new Vector3(0.016f, -0.06f, -0.07f), new Vector3(0.03f, -0.14f, -0.06f), 0.027f, 0.029f, 8, Vector3.forward, 4f);
+            // Index finger: along the right of the frame, below the cylinder, and in through the guard to the trigger.
+            const float ri = 0.0068f;
+            var index = new[]
+            {
+                GripAt(0.06f) + R * (HalfW(0.06f) + 0.009f) + front * (HalfD(0.06f) * 0.5f) + Vector3.up * 0.004f,
+                new Vector3(0.011f + ri + 0.0015f, 0.006f, -0.012f),
+                new Vector3(0.011f + ri + 0.0015f, 0.006f, 0.004f),
+                new Vector3(0.003f, 0.006f, -0.003f + ri)
+            };
+            for (int k = 0; k < index.Length - 1; k++) skin.Tube(index[k], index[k + 1], ri, ri * 0.95f, 6, Vector3.up, 4f);
+            // Thumb: from the web behind the grip, round its back-left corner and forward along the left of the frame.
+            const float rt = 0.0095f;
+            var thumb = new[]
+            {
+                gTop - front * (HalfD(0f) + 0.012f) + Vector3.up * 0.004f,
+                gTop - R * (HalfW(0f) + rt * 0.8f) - front * (HalfD(0f) + rt * 0.8f) + Vector3.up * 0.003f,
+                new Vector3(-(0.011f + rt + 0.001f), 0.022f, -0.035f),
+                new Vector3(-(0.011f + rt + 0.001f), 0.024f, -0.008f),
+                new Vector3(-(0.011f + rt), 0.026f, 0.004f)
+            };
+            for (int k = 0; k < thumb.Length - 1; k++) skin.Tube(thumb[k], thumb[k + 1], rt * (1f - k * 0.05f), rt * (1f - (k + 1) * 0.05f), 6, Vector3.up, 4f);
+            // Wrist back to the sleeve.
+            Vector3 wrist = gBottom + along * 0.065f + R * 0.022f - front * 0.022f;
+            skin.Tube(GripAt(0.9f) + R * 0.012f - front * 0.012f, wrist, 0.026f, 0.028f, 8, front, 4f);
             Place("Hand", skin, "Skin", Vector3.zero, default, gun);
             var sleeve = new MeshBuilder();
-            sleeve.Tube(new Vector3(0.03f, -0.13f, -0.062f), new Vector3(0.06f, -0.34f, -0.02f), 0.036f, 0.055f, 8, Vector3.forward, 4f);
+            sleeve.Tube(wrist - along * 0.005f, wrist + new Vector3(0.03f, -0.21f, 0.04f), 0.034f, 0.055f, 8, Vector3.forward, 4f);
             Place("Sleeve", sleeve, "Sleeve", Vector3.zero, default, gun);
 
             var flashMb = new MeshBuilder();
@@ -413,8 +459,8 @@ namespace GJ.PSX.EditorTools
             Model("../Kkryy/Cardboard/Cardboard", new Vector3(2.45f, 0f, 3.8f), 5f, 0.35f, props, 0f, null, null, null, true);
             Model("Survival/box-large", new Vector3(2.4f, 0f, 5.3f), 0f, 0f, props, 0f, null, new Vector3(0.5f, 0.45f, 0.9f));
             Model("Survival/box", new Vector3(2.4f, 0.45f, 5.3f), 20f, 0f, props, 0f, null, Vector3.one * 0.4f);
-            for (int i = 0; i < 3; i++) Sack(new Vector3(-0.9f + i * 0.5f, 0.11f, 0.35f), 5f * i, props);
-            Sack(new Vector3(-0.65f, 0.35f, 0.37f), -4f, props, 3f);
+            for (int i = 0; i < 3; i++) Sack(new Vector3(-0.9f + i * 0.5f, 0f, 0.35f), 5f * i, props);
+            Sack(new Vector3(-0.65f, 0.21f, 0.37f), -4f, props, 3f);
             Helmet(new Vector3(0.9f, 0.1f, 1.4f), 120f, props);
             Clock(new Vector3(2.2f, 2.5f, RoomMax.z), 180f, props);
             PipeRun("RightMain", "Rust", new[] { new Vector3(2.75f, 3.0f, -0.05f), new Vector3(2.75f, 3.0f, 5.7f), new Vector3(2.75f, 3.45f, 5.7f) }, 0.07f, props);

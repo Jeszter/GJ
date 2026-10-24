@@ -90,7 +90,7 @@ namespace GJ.PSX.EditorTools
             if (_palette == null) return "KenneyPalette";
             Color c = _palette.GetPixelBilinear(uv.x, uv.y);
             Color.RGBToHSV(c, out float h, out float sat, out float val);
-            if (sat < 0.35f) return val > 0.8f ? "Paper" : val > 0.45f ? "Steel" : "DarkMetal";
+            if (sat < 0.35f) return val > 0.93f ? "Enamel" : val > 0.45f ? "Steel" : "DarkMetal";
             if (h < 0.02f || h > 0.95f) return sat > 0.6f ? "RedPaint" : "Crate";
             if (h < 0.14f) return val > 0.55f ? "Wood" : "Crate";
             if (h < 0.18f) return "Helmet";
@@ -262,6 +262,16 @@ namespace GJ.PSX.EditorTools
             ["metal"] = "Display", ["metalMedium"] = "DarkMetal", ["wood"] = "Bakelite"
         };
 
+        // A long tool stood against a wall: its foot a little way out from the wall, leaning back until its top rests
+        // on it. wallPoint is on the wall's surface; into is the wall's normal (pointing into the room).
+        static GameObject LeanOnWall(string file, Vector3 wallPoint, Vector3 into, float height, float footOut, Transform parent)
+        {
+            float lean = Mathf.Asin(Mathf.Clamp01((footOut - 0.02f) / height)) * Mathf.Rad2Deg;
+            float yaw = Mathf.Atan2(into.x, into.z) * Mathf.Rad2Deg;
+            // The model's +Z faces the room; tilting about its own X by -lean brings its top back to the wall.
+            return Model(file, wallPoint + into * footOut, yaw, height, parent, -lean);
+        }
+
         static void Models1()
         {
             var k = new GameObject("Kenney").transform;
@@ -271,8 +281,8 @@ namespace GJ.PSX.EditorTools
             Model("Furniture/televisionVintage", new Vector3(-1.75f, 0.42f, 0.3f), 180f, 0.36f, k, 0f, TvLook);
             Model("Survival/chest", new Vector3(-2.6f, 0f, 2.5f), 90f, 0.42f, k);
             // Tools leaning on the left wall, a barrel and a bin by the door.
-            Model("Survival/tool-pickaxe", new Vector3(-2.62f, 0f, 1.0f), 90f, 0.85f, k, -11f);
-            Model("Survival/tool-shovel", new Vector3(-2.72f, 0f, 1.32f), 90f, 1.0f, k, -9f);
+            LeanOnWall("Survival/tool-pickaxe", new Vector3(RoomMin.x, 0f, 1.0f), Vector3.right, 0.85f, 0.14f, k);
+            LeanOnWall("Survival/tool-shovel", new Vector3(RoomMin.x, 0f, 1.3f), Vector3.right, 1.0f, 0.13f, k);
             Model("Survival/barrel", new Vector3(1.62f, 0f, 7.15f), 20f, 0.8f, k);
             Model("Furniture/trashcan", new Vector3(1.68f, 0f, 7.75f), 0f, 0.5f, k);
             Model("Survival/box-open", new Vector3(1.45f, 0f, 6.35f), -25f, 0.36f, k);
@@ -286,8 +296,8 @@ namespace GJ.PSX.EditorTools
             Model("Survival/chest", new Vector3(2.9f, 0f, 3.85f), -90f, 0.45f, k);
             Model("Furniture/trashcan", new Vector3(2.05f, 0f, 3.95f), 0f, 0.5f, k);
             // Tools against the back wall, barrels and boxes by the door.
-            Model("Survival/tool-pickaxe", new Vector3(-0.95f, 0f, 0.32f), 0f, 0.85f, k, -11f);
-            Model("Survival/tool-shovel", new Vector3(-0.6f, 0f, 0.3f), 0f, 1.0f, k, -9f);
+            LeanOnWall("Survival/tool-pickaxe", new Vector3(-0.95f, 0f, 0f), Vector3.forward, 0.85f, 0.14f, k);
+            LeanOnWall("Survival/tool-shovel", new Vector3(-0.6f, 0f, 0f), Vector3.forward, 1.0f, 0.13f, k);
             Model("Survival/barrel", new Vector3(1.4f, 0f, 6.95f), 0f, 0.8f, k);
             Model("Survival/barrel-open", new Vector3(1.75f, 0f, 6.35f), 40f, 0.8f, k);
             Model("Survival/box-large", new Vector3(-2.0f, 0f, 6.1f), 5f, 0.4f, k);

@@ -145,6 +145,8 @@ namespace GJ.PSX.EditorTools
             var ripple = new MeshBuilder { FaceShade = false };
             ripple.FloorCard(Vector3.zero, 1f);
             var rippleGo = Place("Ripple", ripple, "Ripple", new Vector3(0, 0.006f - top.y, 0), default, root);
+            rippleGo.SetActive(false);
+            drop.SetActive(false);
             var d = root.gameObject.AddComponent<Game.Dripper>();
             d.drop = drop.transform;
             d.ripple = rippleGo.transform;
