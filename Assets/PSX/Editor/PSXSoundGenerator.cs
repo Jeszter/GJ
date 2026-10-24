@@ -49,6 +49,13 @@ namespace GJ.PSX.EditorTools
             Save("radio_loop", RadioLoop());
             Save("steam", Steam());
             Save("buzz", Buzz());
+            Save("gunshot", Gunshot());
+            Save("dry_click", DryClick());
+            Save("locker", Locker());
+            Save("rifle_bolt", RifleBolt());
+            Save("glass_break", GlassBreak());
+            Save("ratchet", Ratchet());
+            Save("sand_pour", SandPour());
             AssetDatabase.Refresh();
 
             // Unity normalises imported clips by default, which would undo the soft levels set above.
@@ -808,6 +815,132 @@ namespace GJ.PSX.EditorTools
                 s[i] = (saw * 0.12f + (_rng.NextDouble() < 0.004 ? Noise() * 0.4f : 0f)) * on * Mathf.Clamp01((0.6f - t) / 0.1f);
             }
             return s;
+        }
+
+        // ---------------------------------------------------------------- the armory
+
+        // A rifle shot in a concrete room: a hard crack, a chesty boom, and the room ringing after it.
+        static float[] Gunshot()
+        {
+            _rng = new System.Random(50);
+            var s = Buffer(2.2f);
+            float lp = 0f, lp2 = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float n = Noise();
+                float crack = t < 0.012f ? n * (1f - t / 0.012f) : 0f;
+                lp += Coef(Mathf.Lerp(4000f, 300f, Mathf.Clamp01(t / 0.25f))) * (n - lp);
+                lp2 += Coef(150f) * (lp - lp2);
+                float body = lp * Mathf.Exp(-t / 0.09f) * 1.4f;
+                float boom = Mathf.Sin(2f * Mathf.PI * Mathf.Lerp(90f, 45f, Mathf.Clamp01(t / 0.2f)) * t) * Mathf.Exp(-t / 0.12f) * 0.6f;
+                float tail = lp2 * Mathf.Exp(-t / 0.6f) * 2.5f;
+                s[i] = crack + body + boom + tail;
+            }
+            Echo(s, 0.8f);
+            for (int i = 0; i < s.Length; i++) s[i] = Mathf.Clamp(s[i], -0.75f, 0.75f);
+            return s;
+        }
+
+        // A firing pin falling on nothing.
+        static float[] DryClick()
+        {
+            _rng = new System.Random(51);
+            var s = Buffer(0.15f);
+            var r = new Resonator(2600f, 0.99f);
+            for (int i = 0; i < s.Length; i++) s[i] = r.Tick(i < 30 ? Noise() : 0f) * 14f * 0.3f;
+            return s;
+        }
+
+        // A steel locker door: a latch knock, then a rusty hinge groan.
+        static float[] Locker()
+        {
+            _rng = new System.Random(52);
+            var s = Buffer(1.0f);
+            var r = new Resonator(700f, 0.995f);
+            double phase = 0;
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float knock = t < 0.004f ? Noise() : 0f;
+                float env = t > 0.1f ? Mathf.Sin(Mathf.Clamp01((t - 0.1f) / 0.85f) * Mathf.PI) : 0f;
+                phase += 2.0 * Math.PI * (420f + 160f * Mathf.Sin(t * 13f)) / Rate;
+                lp += Coef(1500f) * ((float)Math.Sin(phase) - lp);
+                s[i] = r.Tick(knock) * 30f * 0.15f + lp * env * 0.18f + Noise() * env * 0.03f;
+            }
+            return s;
+        }
+
+        // Working a rifle bolt: up, back, forward, down.
+        static float[] RifleBolt()
+        {
+            _rng = new System.Random(53);
+            var s = Buffer(0.7f);
+            foreach (float at in new[] { 0.02f, 0.16f, 0.36f, 0.5f })
+            {
+                int start = Mathf.RoundToInt(at * Rate);
+                var r = new Resonator(1500f + (float)_rng.NextDouble() * 1500f, 0.99f);
+                float lp = 0f;
+                for (int i = 0; i < 2500 && start + i < s.Length; i++)
+                {
+                    float x = i < 40 ? Noise() : 0f;
+                    lp += Coef(3000f) * (Noise() * (i < 1500 ? 0.15f : 0f) - lp);
+                    s[start + i] += r.Tick(x) * 16f * 0.25f + lp * 0.4f;
+                }
+            }
+            for (int i = 0; i < s.Length; i++) s[i] = Mathf.Clamp(s[i], -0.6f, 0.6f);
+            return s;
+        }
+
+        // A bulb bursting: a pop and a shower of tinkling glass.
+        static float[] GlassBreak()
+        {
+            _rng = new System.Random(54);
+            var s = Buffer(1.3f);
+            for (int i = 0; i < 400; i++) s[i] += Noise() * (1f - i / 400f) * 0.6f;
+            for (int k = 0; k < 30; k++)
+            {
+                int at = Mathf.RoundToInt((0.02f + (float)_rng.NextDouble() * 0.9f) * Rate);
+                var r = new Resonator(3000f + (float)_rng.NextDouble() * 5000f, 0.993f);
+                float g = 0.1f + (float)_rng.NextDouble() * 0.2f;
+                for (int i = 0; i < 1800 && at + i < s.Length; i++) s[at + i] += r.Tick(i < 8 ? Noise() : 0f) * 20f * g * 0.2f;
+            }
+            for (int i = 0; i < s.Length; i++) s[i] = Mathf.Clamp(s[i], -0.6f, 0.6f);
+            return s;
+        }
+
+        // A mount turning on its ratchet: a few heavy clicks.
+        static float[] Ratchet()
+        {
+            _rng = new System.Random(55);
+            var s = Buffer(0.6f);
+            var r1 = new Resonator(900f, 0.994f);
+            var r2 = new Resonator(1700f, 0.992f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float x = Mathf.Repeat(t, 0.11f) < 0.002f && t < 0.5f ? Noise() : 0f;
+                s[i] = (r1.Tick(x) + r2.Tick(x) * 0.6f) * 22f * 0.2f;
+            }
+            return s;
+        }
+
+        // Dry sand pouring from a hole onto a heap: a soft hiss of grains with a slow waver. Loops.
+        static float[] SandPour()
+        {
+            _rng = new System.Random(56);
+            var s = Buffer(2.6f);
+            float lp = 0f, hp = 0f, grain = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                grain += Coef(40f) * ((_rng.NextDouble() < 0.3 ? 1f : 0.4f) - grain);
+                lp += Coef(5000f) * (Noise() * grain - lp);
+                hp += Coef(800f) * (lp - hp);
+                s[i] = (lp - hp) * 0.35f * (0.85f + 0.15f * Mathf.Sin(t * 3.1f));
+            }
+            return MakeLoop(s, 0.2f);
         }
 
         // Bunker room tone: mains hum with a few harmonics and a breath of ventilation air. Loops (every

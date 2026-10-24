@@ -61,7 +61,7 @@ namespace GJ.PSX.EditorTools
             Life2();
 
             var rig = BuildPlayer(new Vector3(0.6f, 0f, 0.9f), 0f);
-            BuildDirector(rig, puzzle, 75f, "SECTOR 4 - PUMP ROOM\nyou have 75 seconds of air", 2, "",
+            BuildDirector(rig, puzzle, 75f, "SECTOR 4 - PUMP ROOM\nyou have 75 seconds of air", 2, "Room03",
                 new[] { new Vector3(0.5f, 1.6f, 1f) }, new[] { new Vector3(5f, -20f, 0f) });
 
             RenderSettings.ambientMode = AmbientMode.Flat;

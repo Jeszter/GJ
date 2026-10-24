@@ -28,6 +28,8 @@ namespace GJ.Game
         // 0..1, set from outside: how hard the hand trembles (running out of air).
         public float Tremble { get; set; }
         public bool Lit { get; private set; }
+        // Set while the revolver is out: the lighter hand drops out of view.
+        public bool Lowered { get; set; }
 
         Vector3 _restPos;
         Quaternion _restRot;
@@ -36,6 +38,7 @@ namespace GJ.Game
         float _bobPhase;
         float _reach;          // 0..1 how far the hand dips toward the floor
         float _squeeze;        // 0..1 extra grip
+        float _lower;          // 0..1 how far the hand has dropped out of view
         Coroutine _act;
         System.Action _finishAct;  // lands the running act at once if it gets cut short
 
@@ -206,6 +209,8 @@ namespace GJ.Game
                 : Vector3.zero;
 
             Vector3 reach = new Vector3(-0.05f, -0.07f, 0.09f) * _reach;
+            _lower = Mathf.MoveTowards(_lower, Lowered ? 1f : 0f, dt * 4f);
+            reach += new Vector3(0.04f, -0.3f, 0f) * Mathf.SmoothStep(0f, 1f, _lower);
 
             transform.localPosition = _restPos + new Vector3(_swayNow.x, _swayNow.y + breath, 0f) + bobOffset + shake + reach;
             transform.localRotation = _restRot

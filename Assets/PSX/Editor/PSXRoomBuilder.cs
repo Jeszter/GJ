@@ -52,10 +52,19 @@ namespace GJ.PSX.EditorTools
             FinishBuild();
         }
 
+        [MenuItem("GJ/Build PSX Room 3")]
+        public static void BuildThird()
+        {
+            if (!BeginBuild()) return;
+            BuildRoom3();
+            FinishBuild();
+        }
+
         [MenuItem("GJ/Build All Rooms")]
         public static void BuildAll()
         {
             if (!BeginBuild()) return;
+            BuildRoom3();
             BuildRoom2();
             BuildRoom1();
             FinishBuild();
@@ -126,10 +135,10 @@ namespace GJ.PSX.EditorTools
         static void FinishBuild()
         {
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
-            scenes.RemoveAll(s => s.path == ScenePath || s.path == Scene2Path);
+            scenes.RemoveAll(s => s.path == ScenePath || s.path == Scene2Path || s.path == Scene3Path);
             int at = 0;
-            if (File.Exists(ScenePath)) scenes.Insert(at++, new EditorBuildSettingsScene(ScenePath, true));
-            if (File.Exists(Scene2Path)) scenes.Insert(at, new EditorBuildSettingsScene(Scene2Path, true));
+            foreach (var path in new[] { ScenePath, Scene2Path, Scene3Path })
+                if (File.Exists(path)) scenes.Insert(at++, new EditorBuildSettingsScene(path, true));
             EditorBuildSettings.scenes = scenes.ToArray();
             AssetDatabase.SaveAssets();
         }
@@ -547,6 +556,27 @@ namespace GJ.PSX.EditorTools
             MakePropMaterials(lit);
             MakeLifeMaterials();
             MakeModelMaterials(lit);
+            Lit("Gunmetal", lit, MakeTexture("gunmetal", 16, (x, y) =>
+                Shade(new Color(0.16f, 0.17f, 0.2f), (Hash(x, 0, 160) - 0.5f) * 0.06f + (Hash(x, y, 161) - 0.5f) * 0.04f)), new Color(0.03f, 0.03f, 0.035f));
+            Lit("GripWood", lit, MakeTexture("grip_wood", 16, (x, y) =>
+                (x + y) % 4 == 0 ? new Color(0.22f, 0.08f, 0.06f) : Shade(new Color(0.42f, 0.13f, 0.09f), (Hash(x, y, 162) - 0.5f) * 0.08f)), new Color(0.04f, 0.01f, 0.01f));
+            Lit("Sand", lit, MakeTexture("sand", 16, (x, y) =>
+                Shade(new Color(0.62f, 0.52f, 0.34f), (Hash(x, y, 163) - 0.5f) * 0.14f)), new Color(0.05f, 0.04f, 0.02f));
+            Lit("Target", lit, MakeTexture("target", 32, (x, y) =>
+            {
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(15.5f, 18f));
+                var paper = Shade(new Color(0.8f, 0.76f, 0.64f), (Hash(x, y, 164) - 0.5f) * 0.05f);
+                if (y < 6) return Shade(paper, -0.02f);
+                int ring = (int)(d / 2.6f);
+                Color c = ring > 5 ? paper : ring % 2 == 0 ? new Color(0.1f, 0.1f, 0.1f) : paper;
+                if (ring == 0) c = new Color(0.65f, 0.12f, 0.08f);
+                foreach (var hole in new[] { new Vector2(12, 22), new Vector2(19, 13), new Vector2(22, 24), new Vector2(9, 15) })
+                    if (Vector2.Distance(new Vector2(x, y), hole) < 1f) c = new Color(0.03f, 0.03f, 0.03f);
+                return c;
+            }));
+            Lit("SignSand", lit, Sign("sign_sand", 64, 16, new Color(0.55f, 0.45f, 0.2f), new Color(0.08f, 0.08f, 0.08f), 1, "SAND"));
+            Lit("SignArmory", lit, Sign("sign_armory", 64, 16, new Color(0.17f, 0.18f, 0.19f), new Color(0.78f, 0.76f, 0.7f), 1, "ARMORY"));
+            Lit("SignAmmo", lit, Sign("sign_ammo", 64, 16, new Color(0.62f, 0.12f, 0.08f), new Color(0.9f, 0.85f, 0.75f), 1, "SIGN OUT"));
 
             var strip = GlowStrip();
             Additive("WaterStream", add, strip, new Color(0.45f, 0.65f, 0.8f) * 0.9f);

@@ -39,6 +39,41 @@ namespace GJ.PSX.EditorTools
             EditorApplication.update += Tick;
         }
 
+        // Hands the player the revolver and checks that a shot from the eye toward each target reaches it.
+        [MenuItem("GJ/Debug/Probe Revolver")]
+        public static void ProbeRevolver()
+        {
+            if (!EditorApplication.isPlaying) return;
+            Log.Clear();
+            Application.runInBackground = true;
+            var p = UnityEngine.Object.FindFirstObjectByType<Game.HopperPuzzle>();
+            Call(p, "TakeRevolver");
+            var eye = Camera.main.transform.position;
+            foreach (var (name, target) in new[] { ("bolt hopper", p.boltHopperBody.position), ("vent hopper", p.ventHopperBody.position), ("lamp", p.lampLight.transform.position + Vector3.up * 0.15f) })
+            {
+                var ok = Physics.Raycast(eye, (target - eye).normalized, out var hit, 40f, ~0, QueryTriggerInteraction.Ignore);
+                var s = ok ? hit.collider.GetComponentInParent<Game.Shootable>() : null;
+                Write($"{name}: hit {(ok ? hit.collider.name + " under " + hit.collider.transform.parent?.name : "nothing")} -> shootable {(s != null ? s.name : "none")}");
+            }
+            File.WriteAllText(LogPath, Log.ToString());
+        }
+
+        [MenuItem("GJ/Debug/Probe View")]
+        public static void ProbeView()
+        {
+            Log.Clear();
+            var cam = Camera.main;
+            Write($"main cam {cam?.name} enabled={cam?.enabled} target={cam?.targetTexture?.name} pos={cam?.transform.position} fwd={cam?.transform.forward}");
+            foreach (var c in UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
+                Write($"camera {c.name} enabled={c.enabled} depth={c.depth} target={c.targetTexture?.name} mask={c.cullingMask}");
+            var flow = UnityEngine.Object.FindFirstObjectByType<Game.GameFlow>();
+            var black = (UnityEngine.UI.Image)Get(flow, "_black");
+            Write($"flow state={Get(flow, "_state")} black={black.color} crt={Shader.GetGlobalFloat("_PsxCrt")} tvOff={Shader.GetGlobalFloat("_PsxTvOff")}");
+            var d = UnityEngine.Object.FindFirstObjectByType<Game.RoomDirector>();
+            Write($"director phase={Get(d, "_phase")} fade={((UnityEngine.UI.Image)Get(d, "_fade")).color} enabled={d.enabled} timeScale={Time.timeScale}");
+            File.WriteAllText(LogPath, Log.ToString());
+        }
+
         static void Tick()
         {
             if (!EditorApplication.isPlaying) { Finish("stopped"); return; }
@@ -124,7 +159,11 @@ namespace GJ.PSX.EditorTools
             }
             else if (_step < 4) _step++;
             else if (_step == 4) { Set(_director, "_air", 1f); _step++; }
-            else Watch("working " + _puzzle.Working);
+            else
+            {
+                var sand = _puzzle.GetType().GetField("_boltSand", BindingFlags.Instance | BindingFlags.NonPublic);
+                Watch("working " + _puzzle.Working + (sand != null ? " sand " + ((float)sand.GetValue(_puzzle)).ToString("F2") + " enabled " + _puzzle.isActiveAndEnabled : ""));
+            }
         }
 
         static void Watch(string state)

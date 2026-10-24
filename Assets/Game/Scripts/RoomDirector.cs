@@ -22,6 +22,7 @@ namespace GJ.Game
         public HandAnimator handAnimator;
         public Light lighterLight;
         public RoomPuzzle puzzle;
+        public Revolver revolver;          // only in rooms where one can be found
         public VaultDoor door;
         public SegmentDisplay display;
         public GameFlow flow;
@@ -130,7 +131,11 @@ namespace GJ.Game
             // Snap the Zippo shut (darkness, and the flame is safe in your pocket) or flick it open again.
             var mouse = Mouse.current;
             if (handAnimator != null && ((kb != null && kb.fKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)))
-                handAnimator.Toggle();
+            {
+                // With the revolver out, the first press just puts it away and brings the lighter back up.
+                if (revolver != null && revolver.Drawn) revolver.Holster();
+                else handAnimator.Toggle();
+            }
 
             UpdateHeart();
 
@@ -220,6 +225,7 @@ namespace GJ.Game
             controller.enabled = false;
             GameSession.Deaths++;
             if (handAnimator != null) handAnimator.enabled = false;
+            if (revolver != null) revolver.Holster();
 
             // Collapse onto the floor; the eyes end up low, on whatever is still happening in the room.
             Vector3 startPos = head.position;

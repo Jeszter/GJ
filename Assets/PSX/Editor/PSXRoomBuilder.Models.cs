@@ -24,6 +24,17 @@ namespace GJ.PSX.EditorTools
 
         static Texture2D _palette;
 
+        static Texture2D SiblingTexture(string modelPath)
+        {
+            string dir = System.IO.Path.GetDirectoryName(modelPath).Replace('\\', '/');
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { dir }))
+            {
+                string p = AssetDatabase.GUIDToAssetPath(guid);
+                if (System.IO.Path.GetDirectoryName(p).Replace('\\', '/') == dir) return AssetDatabase.LoadAssetAtPath<Texture2D>(p);
+            }
+            return null;
+        }
+
         // A PSX/Lit material wearing a model's own texture, point-filtered and a little dimmed to sit in the rooms.
         static string OwnTextureMaterial(Texture2D tex)
         {
@@ -158,7 +169,10 @@ namespace GJ.PSX.EditorTools
                     var srcMat = sub < materials.Length ? materials[sub] : null;
                     var src = srcMat != null ? srcMat.name : "_defaultMat";
                     string target;
-                    if (keepTexture && srcMat != null && srcMat.mainTexture is Texture2D own) target = OwnTextureMaterial(own);
+                    Texture2D own = srcMat != null ? srcMat.mainTexture as Texture2D : null;
+                    // Some packs ship the texture beside the FBX without linking it in the material: use that one.
+                    if (keepTexture && own == null) own = SiblingTexture(assetPath);
+                    if (keepTexture && own != null) target = OwnTextureMaterial(own);
                     else if ((overrides == null || !overrides.TryGetValue(src, out target)) && !KenneyMaterials.TryGetValue(src, out target)) target = "Steel";
                     if (!groups.TryGetValue(target, out var list)) groups[target] = list = new List<(Vector3, Vector3, Vector2)>();
                     var tris = mesh.GetTriangles(sub);
