@@ -52,17 +52,31 @@ namespace GJ.Game
         }
     }
 
-    // What survives a scene load: whether the room is opening straight after the story, and the run's stats.
+    // What survives a scene load: whether the room is opening straight after the story, the run's stats, and which
+    // attempt at the current room this is.
     public static class GameSession
     {
         public static bool FromStory;
         public static int Deaths;
         public static float Time;
+        public static string Room;       // the room the last attempt was made in
+        public static int Attempt;       // this attempt at it, from 1
+        public static string LastFail;   // why the attempt before ran out ("one more time"), if it did
+
+        // A room starts: one more attempt at the same room, or the first at a new one.
+        public static void BeginAttempt(string room)
+        {
+            Attempt = room == Room ? Attempt + 1 : 1;
+            Room = room;
+        }
 
         public static void Reset()
         {
             Deaths = 0;
             Time = 0f;
+            Room = null;
+            Attempt = 0;
+            LastFail = null;
         }
     }
 }

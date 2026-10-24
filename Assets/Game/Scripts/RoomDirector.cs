@@ -48,7 +48,7 @@ namespace GJ.Game
         float _nextBeat;
         float _nextAmbient = 4f;
 
-        Text _timer, _prompt, _message, _noteText, _controls;
+        Text _timer, _attempt, _prompt, _message, _noteText, _controls;
         Image _fade, _paper;
         Coroutine _flash;
         float _controlsTime = 9f;
@@ -72,7 +72,17 @@ namespace GJ.Game
             BuildAudio();
             Time.timeScale = 1f;
             if (handAnimator != null) handAnimator.LightUp(0.7f);
-            Flash(startMessage, 4f);
+
+            // Another go at the same room: say which, and what went wrong last time (the death screen shows it only
+            // for a moment).
+            GameSession.BeginAttempt(SceneManager.GetActiveScene().name);
+            string lastFail = GameSession.LastFail;
+            GameSession.LastFail = null;
+            int attempt = GameSession.Attempt;
+            _attempt.text = attempt > 1 ? "ATTEMPT " + attempt : "";
+            if (attempt > 1 && !string.IsNullOrEmpty(lastFail)) Flash($"ATTEMPT {attempt}\n<size=10>last time: {lastFail}</size>", 4.5f);
+            else if (attempt > 1) Flash("ATTEMPT " + attempt, 2.5f);
+            else Flash(startMessage, 4f);
         }
 
         void OnDestroy() => Time.timeScale = 1f;
@@ -313,6 +323,7 @@ namespace GJ.Game
                 _fade.color = new Color(0f, 0f, 0f, Mathf.Lerp(0.35f, 1f, t / 1.5f));
                 yield return null;
             }
+            GameSession.LastFail = reason;
             Restart();
         }
 
@@ -461,6 +472,8 @@ namespace GJ.Game
             _paper.gameObject.SetActive(false);
 
             _timer = MakeText(canvasGo.transform, font, 18, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(10, -6));
+            _attempt = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(11, -28));
+            _attempt.color = new Color(0.7f, 0.65f, 0.58f, 0.85f);
             _controls = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(-10, -8));
             _controls.text = "[E] use   [F] lighter   [R] restart";
             _controls.lineSpacing = 1.2f;
