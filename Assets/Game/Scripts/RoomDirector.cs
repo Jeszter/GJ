@@ -417,7 +417,8 @@ namespace GJ.Game
         IEnumerator FlashRoutine(string text, float seconds)
         {
             _message.text = text;
-            for (float t = 0f; t < seconds; t += Time.unscaledDeltaTime)
+            // Capped per frame: the room's first frame carries the whole scene load and would eat the message at once.
+            for (float t = 0f; t < seconds; t += Mathf.Min(Time.unscaledDeltaTime, 0.05f))
             {
                 var c = _message.color;
                 c.a = Mathf.Clamp01((seconds - t) / 0.6f);

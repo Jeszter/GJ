@@ -302,9 +302,13 @@ namespace GJ.Game
             StartCoroutine(FadeFromBlack(fadeIn ? 1.8f : 0.6f));
         }
 
+        // Real time for the screen's own animations, but never more than a short step at once: the first frame after a
+        // scene loads carries the whole load, and would skip the fade or the dive into the TV in one go.
+        static float Step => Mathf.Min(Time.unscaledDeltaTime, 0.05f);
+
         IEnumerator FadeFromBlack(float seconds)
         {
-            for (float t = 0f; t < seconds; t += Time.unscaledDeltaTime)
+            for (float t = 0f; t < seconds; t += Step)
             {
                 _black.color = new Color(0, 0, 0, 1f - t / seconds);
                 yield return null;
@@ -352,14 +356,22 @@ namespace GJ.Game
             _black.color = Color.black;
             int s = Mathf.FloorToInt(GameSession.Time);
             bool last = IsLastRoom;
-            _endText.text = $"SECTOR 4  -  ROOM {room} CLEARED\n\n" +
+            _endText.text = (last ? "SECTOR 4  -  YOU GOT OUT" : $"SECTOR 4  -  ROOM {room} CLEARED") + "\n\n" +
                             $"deaths     {GameSession.Deaths}\n" +
                             $"time       {s / 60:00}:{s % 60:00}\n\n" +
-                            (last ? "the last door is open.\nthank you for playing." : "somewhere ahead, water is running.");
+                            (last ? "the last door is open.\nthank you for playing." : Ahead(room));
             _endText.gameObject.SetActive(true);
             Snow(0.8f);
             Open(last ? _endMenu : _nextMenu);
         }
+
+        // A hint of what waits behind the next door, after each room but the last.
+        static string Ahead(int room) => room switch
+        {
+            1 => "somewhere ahead, water is running.",
+            2 => "beyond the next door: gun oil and sand.",
+            _ => "the corridor goes on into the dark."
+        };
 
         static void LoadScene(string scene)
         {
@@ -424,7 +436,7 @@ namespace GJ.Game
             // Every screen that isn't the game itself is shown on the old TV; going into the game the camera dives
             // into the glass, coming out the set pulls back into view.
             float crtTarget = _state == State.Playing ? 0f : 1f;
-            _crt = Mathf.MoveTowards(_crt, crtTarget, Time.unscaledDeltaTime * 1.6f);
+            _crt = Mathf.MoveTowards(_crt, crtTarget, Step * 1.6f);
             Shader.SetGlobalFloat(CrtId, Mathf.SmoothStep(0f, 1f, _crt));
             _static = Mathf.MoveTowards(_static, 0f, Time.unscaledDeltaTime * 4f);
             Shader.SetGlobalFloat(StaticId, _static);
