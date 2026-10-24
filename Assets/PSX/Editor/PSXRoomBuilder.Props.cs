@@ -482,7 +482,7 @@ namespace GJ.PSX.EditorTools
             Litter(new Vector3(1.6f, 0f, 4.2f), 0.7f, 120, d);
             Litter(new Vector3(-0.3f, 0f, 6.9f), 0.9f, 121, d);
             Model("Survival/bottle", new Vector3(2.2f, 0.04f, 3.6f), 60f, 0.28f, d, 90f);
-            TinCan(new Vector3(-2.0f, 0f, 0.45f), 20f, d, true);
+            TinCan(new Vector3(-1.5f, 0f, 0.85f), 20f, d, true);
             TinCan(new Vector3(-1.75f, 0f, 0.7f), 0f, d);
             Wrench(new Vector3(1.75f, 0f, 6.6f), 40f, d, 0.3f);
             DanglingCable(new Vector3(-0.6f, RoomMax.y, 2.6f), 0.9f, d);
@@ -503,7 +503,7 @@ namespace GJ.PSX.EditorTools
             Boots(new Vector3(2.55f, 0f, 1.35f), 170f, d);
             Coat(new Vector3(RoomMax.x, 1.75f, 3.1f), -90f, "Leather", d);
             WallCard("Photo", "Photo", new Vector3(RoomMax.x - 0.005f, 1.35f, 2.2f), -90f, 0.13f, 0.13f, d, -6f);
-            Model("Survival/bottle-large", new Vector3(2.2f, 0.05f, 2.9f), 20f, 0.3f, d, 90f);
+            Model("Survival/bottle-large", new Vector3(2.2f, 0.09f, 2.9f), 20f, 0.3f, d, 90f);
 
             // Back wall: breaker panel, a notice and a safety poster; tools and spare pipe by the pump.
             BreakerPanel(new Vector3(-1.45f, 1.55f, 0f), 0f, d, RoomMax.y);

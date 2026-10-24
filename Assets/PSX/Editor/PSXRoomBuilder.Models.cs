@@ -24,6 +24,54 @@ namespace GJ.PSX.EditorTools
 
         static Texture2D _palette;
 
+        // A PSX/Lit material wearing a model's own texture, point-filtered and a little dimmed to sit in the rooms.
+        static string OwnTextureMaterial(Texture2D tex)
+        {
+            string name = "Own_" + tex.name;
+            if (Mats.ContainsKey(name)) return name;
+            string path = AssetDatabase.GetAssetPath(tex);
+            if (AssetImporter.GetAtPath(path) is TextureImporter importer && (importer.filterMode != FilterMode.Point || importer.mipmapEnabled))
+            {
+                importer.filterMode = FilterMode.Point;
+                importer.mipmapEnabled = false;
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+                tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            }
+            var m = new Material(Shader.Find("PSX/Lit"));
+            m.SetTexture("_BaseMap", tex);
+            m.SetColor("_BaseColor", new Color(0.78f, 0.74f, 0.7f));
+            m.SetColor("_EmissionColor", Color.black);
+            SaveMaterial(name, m);
+            return name;
+        }
+
+        // Bend a bone about a world axis through the character's own frame (for posing a T-posed rig).
+        static void Bend(Transform root, string bone, Vector3 axis, float degrees)
+        {
+            foreach (var t in root.GetComponentsInChildren<Transform>())
+                if (t.name == bone) { t.rotation = Quaternion.AngleAxis(degrees, root.TransformDirection(axis)) * t.rotation; return; }
+        }
+
+        // The LOWHO zombie as a person: standing with the arms down (the right one bent forward to hold a lighter), or
+        // flat on the floor where the air ran out, one arm flung out.
+        static void PoseStanding(Transform root)
+        {
+            Bend(root, "upper_arm.L", Vector3.forward, 78f);
+            Bend(root, "upper_arm.R", Vector3.forward, -72f);
+            Bend(root, "forearm.R", Vector3.right, -65f);
+            Bend(root, "forearm.L", Vector3.right, -15f);
+        }
+
+        static void PoseFallen(Transform root)
+        {
+            Bend(root, "upper_arm.L", Vector3.forward, 20f);
+            Bend(root, "upper_arm.R", Vector3.forward, -80f);
+            Bend(root, "forearm.L", Vector3.up, 35f);
+            Bend(root, "thigh.L", Vector3.forward, -8f);
+            Bend(root, "shin.L", Vector3.right, 25f);
+        }
+
         // The survival kit paints everything from one palette of bright flat colours. Swap each colour for the rooms'
         // own textured material of the same family, so the models get the same grime as everything else.
         static string PaletteMaterial(Vector2 uv)
@@ -66,31 +114,52 @@ namespace GJ.PSX.EditorTools
         // Places a Kenney model (file relative to KenneyRoot, without .fbx) standing on pos, turned by yaw, leaning by
         // tilt (degrees about its own X), scaled so it is "height" metres tall (or stretched to fit, metres along its
         // own X, Y, Z, when fit is given).
+        // Rigged characters (paths starting with "../") can be posed first: pose gets the instance and moves its bones;
+        // the skinned mesh is then baked in that pose. keepTexture keeps the model's own texture (point-filtered,
+        // dimmed) instead of swapping in the rooms' materials.
         static GameObject Model(string file, Vector3 pos, float yaw, float height, Transform parent, float tilt = 0f,
-                                Dictionary<string, string> overrides = null, Vector3? fit = null)
+                                Dictionary<string, string> overrides = null, Vector3? fit = null,
+                                System.Action<Transform> pose = null, bool keepTexture = false)
         {
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{KenneyRoot}/{file}.fbx");
+            string assetPath = file.StartsWith("../") ? $"Assets/ThirdParty/{file.Substring(3)}.fbx" : $"{KenneyRoot}/{file}.fbx";
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
             if (prefab == null) { Debug.LogWarning("Missing model " + file); return null; }
             var inst = (GameObject)Object.Instantiate(prefab);
             inst.transform.position = Vector3.zero;
+            pose?.Invoke(inst.transform);
+
+            // Every mesh with its materials, in the model root's space; skinned ones baked in their current pose.
+            var parts = new List<(Mesh mesh, Matrix4x4 toRoot, Material[] mats)>();
+            var bakedSkins = new List<Mesh>();
+            foreach (var mf in inst.GetComponentsInChildren<MeshFilter>())
+            {
+                var mr = mf.GetComponent<MeshRenderer>();
+                if (mf.sharedMesh != null && mr != null) parts.Add((mf.sharedMesh, mf.transform.localToWorldMatrix, mr.sharedMaterials));
+            }
+            foreach (var smr in inst.GetComponentsInChildren<SkinnedMeshRenderer>())
+            {
+                var m = new Mesh();
+                smr.BakeMesh(m);
+                bakedSkins.Add(m);
+                parts.Add((m, Matrix4x4.TRS(smr.transform.position, smr.transform.rotation, Vector3.one), smr.sharedMaterials));
+            }
 
             // Gather every triangle by target material, in the model root's space.
             var groups = new Dictionary<string, List<(Vector3 p, Vector3 n, Vector2 uv)>>();
             var bounds = new Bounds();
             bool first = true;
-            foreach (var mf in inst.GetComponentsInChildren<MeshFilter>())
+            foreach (var (mesh, toRoot, materials) in parts)
             {
-                var mesh = mf.sharedMesh;
-                var mr = mf.GetComponent<MeshRenderer>();
-                if (mesh == null || mr == null) continue;
-                var toRoot = mf.transform.localToWorldMatrix;
                 var verts = mesh.vertices;
                 var normals = mesh.normals;
                 var uvs = mesh.uv;
                 for (int sub = 0; sub < mesh.subMeshCount; sub++)
                 {
-                    var src = sub < mr.sharedMaterials.Length && mr.sharedMaterials[sub] != null ? mr.sharedMaterials[sub].name : "_defaultMat";
-                    if ((overrides == null || !overrides.TryGetValue(src, out var target)) && !KenneyMaterials.TryGetValue(src, out target)) target = "Steel";
+                    var srcMat = sub < materials.Length ? materials[sub] : null;
+                    var src = srcMat != null ? srcMat.name : "_defaultMat";
+                    string target;
+                    if (keepTexture && srcMat != null && srcMat.mainTexture is Texture2D own) target = OwnTextureMaterial(own);
+                    else if ((overrides == null || !overrides.TryGetValue(src, out target)) && !KenneyMaterials.TryGetValue(src, out target)) target = "Steel";
                     if (!groups.TryGetValue(target, out var list)) groups[target] = list = new List<(Vector3, Vector3, Vector2)>();
                     var tris = mesh.GetTriangles(sub);
                     for (int t = 0; t < tris.Length; t += 3)
@@ -116,6 +185,7 @@ namespace GJ.PSX.EditorTools
                 }
             }
             Object.DestroyImmediate(inst);
+            foreach (var skin in bakedSkins) Object.DestroyImmediate(skin);
             if (first) return null;
 
             Vector3 size = Vector3.Max(bounds.size, Vector3.one * 0.001f);
@@ -187,10 +257,10 @@ namespace GJ.PSX.EditorTools
             Model("Furniture/televisionVintage", new Vector3(-1.75f, 0.42f, 0.3f), 180f, 0.36f, k, 0f, TvLook);
             Model("Survival/chest", new Vector3(-2.6f, 0f, 2.5f), 90f, 0.42f, k);
             // Tools leaning on the left wall, a barrel and a bin by the door.
-            Model("Survival/tool-pickaxe", new Vector3(-2.88f, 0f, 1.12f), 90f, 0.85f, k, -14f);
-            Model("Survival/tool-shovel", new Vector3(-2.9f, 0f, 1.32f), 90f, 1.0f, k, -10f);
+            Model("Survival/tool-pickaxe", new Vector3(-2.62f, 0f, 1.0f), 90f, 0.85f, k, -11f);
+            Model("Survival/tool-shovel", new Vector3(-2.72f, 0f, 1.32f), 90f, 1.0f, k, -9f);
             Model("Survival/barrel", new Vector3(1.62f, 0f, 7.15f), 20f, 0.8f, k);
-            Model("Furniture/trashcan", new Vector3(1.42f, 0f, 7.7f), 0f, 0.5f, k);
+            Model("Furniture/trashcan", new Vector3(1.68f, 0f, 7.75f), 0f, 0.5f, k);
             Model("Survival/box-open", new Vector3(1.45f, 0f, 6.35f), -25f, 0.36f, k);
         }
 
@@ -202,8 +272,8 @@ namespace GJ.PSX.EditorTools
             Model("Survival/chest", new Vector3(2.9f, 0f, 3.85f), -90f, 0.45f, k);
             Model("Furniture/trashcan", new Vector3(2.05f, 0f, 3.95f), 0f, 0.5f, k);
             // Tools against the back wall, barrels and boxes by the door.
-            Model("Survival/tool-pickaxe", new Vector3(-0.85f, 0f, 0.1f), 0f, 0.85f, k, -14f);
-            Model("Survival/tool-shovel", new Vector3(-0.6f, 0f, 0.1f), 0f, 1.0f, k, -12f);
+            Model("Survival/tool-pickaxe", new Vector3(-0.95f, 0f, 0.32f), 0f, 0.85f, k, -11f);
+            Model("Survival/tool-shovel", new Vector3(-0.6f, 0f, 0.3f), 0f, 1.0f, k, -9f);
             Model("Survival/barrel", new Vector3(1.4f, 0f, 6.95f), 0f, 0.8f, k);
             Model("Survival/barrel-open", new Vector3(1.75f, 0f, 6.35f), 40f, 0.8f, k);
             Model("Survival/box-large", new Vector3(-2.0f, 0f, 6.1f), 5f, 0.4f, k);

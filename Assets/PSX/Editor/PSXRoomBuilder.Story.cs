@@ -89,6 +89,16 @@ namespace GJ.PSX.EditorTools
             flicker.lean = 6f;
         }
 
+        // Our miner's hard hat on a character's head (top of a model "height" metres tall, local up).
+        static void HardHat(Transform character, float height)
+        {
+            var hat = new MeshBuilder();
+            hat.Tube(new Vector3(0, 0f, 0), new Vector3(0, 0.12f, 0), 0.14f, 0.07f, 8, Vector3.forward, 4f);
+            hat.Tube(new Vector3(0, -0.01f, 0), new Vector3(0, 0.01f, 0), 0.17f, 0.17f, 8, Vector3.forward, 4f);
+            Place("HardHat", hat, "Helmet", new Vector3(0, height - 0.12f, 0.01f), default, character);
+            Cyl("HatLamp", "Steel", new Vector3(0, height - 0.06f, 0.13f), 0.03f, 0.04f, 7, new Vector3(90, 0, 0), 4f, character);
+        }
+
         static Game.StoryStage BuildStoryStage()
         {
             var root = new GameObject("StoryStage").transform;
@@ -250,7 +260,8 @@ namespace GJ.PSX.EditorTools
                 Model("Survival/box", new Vector3(2.4f, 0.45f, 3.1f), 25f, 0.32f, s);
                 Model("Survival/barrel", new Vector3(2.9f, 0f, 2.2f), 0f, 0.85f, s);
                 // You, from behind, a lighter low in your right hand.
-                Figure("Miner", new Vector3(0.45f, 0f, 1.2f), 8f, s);
+                var miner = Model("../LOWHO/Zombie", new Vector3(0.45f, 0f, 1.2f), 188f, 1.72f, s, 0f, null, null, PoseStanding, true);
+                HardHat(miner.transform, 1.72f);
                 SetFlame(s, new Vector3(0.78f, 0.95f, 1.35f), 0.07f, 3f, 1.2f);
                 SetLight(s, new Vector3(0f, 2.5f, -1.5f), new Color(0.45f, 0.55f, 0.85f), 7f, 0.7f);
                 sets[2] = s.gameObject;
@@ -306,6 +317,8 @@ namespace GJ.PSX.EditorTools
                 Block("Wall_B", "Stone", new Vector3(3.3f, 1.7f, 5f), new Vector3(2.2f, 3.4f, 0.2f), default, 0.5f, s);
                 Block("Lintel", "Stone", new Vector3(1.4f, 2.9f, 5f), new Vector3(1.6f, 1.0f, 0.2f), default, 0.5f, s);
                 Block("Ceiling", "Ceiling", new Vector3(0, 3.45f, 1.5f), new Vector3(9f, 0.1f, 9f), default, 1f, s);
+                Block("Side_L", "Stone", new Vector3(-4.5f, 1.7f, 1.5f), new Vector3(0.2f, 3.4f, 9f), default, 0.5f, s);
+                Block("Side_R", "Stone", new Vector3(4.4f, 1.7f, 1.5f), new Vector3(0.2f, 3.4f, 9f), default, 0.5f, s);
                 // The door stands open; cold light pours in from the corridor.
                 Block("Leaf", "VaultMetal", new Vector3(0.75f, 1.2f, 4.2f), new Vector3(0.12f, 2.4f, 1.6f), new Vector3(0, 20, 0), 0.5f, s);
                 Block("ExitGlow", "ExitGlow", new Vector3(1.4f, 1.2f, 7f), new Vector3(1.6f, 2.4f, 0.1f), default, 1f, s);
@@ -315,7 +328,9 @@ namespace GJ.PSX.EditorTools
                 Block("CorridorRoof", "Ceiling", new Vector3(1.4f, 2.42f, 6f), new Vector3(1.8f, 0.1f, 2f), default, 1f, s);
                 SetLight(s, new Vector3(1.4f, 1.4f, 5.6f), new Color(0.75f, 0.85f, 1f), 9f, 3f);
                 // You, where the air ran out; the lighter by your hand; the fire crawling on.
-                Figure("Body", new Vector3(-1.6f, 0f, 0.6f), -70f, s, true);
+                // Lying on its back: the model's +Z (its front) turned to the ceiling, head toward the room.
+                var body = Model("../LOWHO/Zombie", new Vector3(-1.75f, 0.14f, 0.55f), -70f, 1.72f, s, -90f, null, null, PoseFallen, true);
+                HardHat(body.transform, 1.72f);
                 Cyl("DroppedLighter", "Chrome", new Vector3(-1.05f, 0.02f, 0.05f), 0.03f, 0.05f, 6, new Vector3(0, 0, 90), 6f, s);
                 var path = Smooth(new[] { new Vector3(-1.0f, 0.012f, 0.1f), new Vector3(-0.2f, 0.012f, 0.4f), new Vector3(0.2f, 0.012f, 1.6f), new Vector3(0.9f, 0.012f, 2.7f), new Vector3(1.3f, 0.012f, 4.6f) }, 6);
                 var powder = new MeshBuilder();

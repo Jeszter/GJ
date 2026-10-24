@@ -325,7 +325,7 @@ namespace GJ.PSX.EditorTools
             Plate("Sign_Drain", "SignDrain", new Vector3(-wallX, 1.5f, 5.0f), 0.5f, 0.25f, Vector3.right, props);
             Plate("Sign_Bolt", "SignWeight", new Vector3(-2.05f, 2.45f, doorZ), 0.6f, 0.2f, Vector3.back, props);
             Plate("Sign_Exit", "SignExit", new Vector3(DoorHalfWidth - 0.012f, 2.0f, RoomMax.z + 2.2f), 0.5f, 0.17f, Vector3.left, props);
-            var chainNote = Plate("Note_Chain", "Paper", new Vector3(-2.15f, 1.5f, doorZ), 0.22f, 0.28f, Vector3.back, props, 5f);
+            var chainNote = Plate("Note_Chain", "NoteScrap", new Vector3(-2.15f, 1.5f, doorZ - 0.004f), 0.22f, 0.28f, Vector3.back, props, 5f);
             chainNote.AddComponent<Game.ReadableNote>().text = NoteChain;
 
             // A cot along the right wall: someone has been sleeping down here.
@@ -343,7 +343,7 @@ namespace GJ.PSX.EditorTools
                 Cyl("Tin", "Steel", new Vector3(-0.2f + i * 0.11f, 0.785f, 0.32f - i * 0.04f), 0.04f, 0.08f + i * 0.01f, 7, default, 4f, table);
             Cyl("Bottle", "Glass", new Vector3(0.22f, 0.785f, 0.35f), 0.035f, 0.2f, 6, default, 4f, table);
             Cyl("BottleNeck", "Glass", new Vector3(0.22f, 0.985f, 0.35f), 0.014f, 0.07f, 6, default, 4f, table);
-            var note = Plate("Note_Day5", "Paper", new Vector3(-0.1f, 0.788f, -0.15f), 0.2f, 0.26f, Vector3.up, table, -14f);
+            var note = Plate("Note_Day5", "NoteDiary", new Vector3(-0.1f, 0.797f, -0.15f), 0.2f, 0.26f, Vector3.up, table, -14f);
             note.AddComponent<Game.ReadableNote>().text = NoteDay5;
             var lantern = new GameObject("Lantern").transform;
             lantern.SetParent(table, false);
@@ -417,7 +417,7 @@ namespace GJ.PSX.EditorTools
                 Block("Rubble", i % 3 == 0 ? "Concrete" : "Stone", p, new Vector3(s, s * 0.7f, s * 0.9f),
                       new Vector3(Hash(i, 4, 96) * 40f, Hash(i, 5, 97) * 360f, Hash(i, 6, 98) * 30f), 2f, props);
             }
-            Helmet(new Vector3(-0.1f, 0f, 6.5f), -60f, props);
+            Helmet(new Vector3(-0.1f, 0.1f, 6.5f), -60f, props);
         }
 
         static void BuildRoom2Lights()

@@ -477,6 +477,8 @@ namespace GJ.PSX.EditorTools
             Lit("Paper", lit, MakeTexture("paper", 16, (x, y) =>
                 Shade(new Color(0.78f, 0.73f, 0.62f), (Hash(x, y, 51) - 0.5f) * 0.06f + (y % 3 == 0 && x > 2 && x < 13 && y > 2 && y < 14 ? -0.12f : 0f))),
                 new Color(0.06f, 0.05f, 0.04f));
+            Lit("NoteDiary", lit, NoteTexture("note_diary", 7, false), new Color(0.07f, 0.06f, 0.05f));
+            Lit("NoteScrap", lit, NoteTexture("note_scrap", 8, true), new Color(0.07f, 0.06f, 0.05f));
             Lit("Gauge", lit, MakeTexture("gauge", 16, (x, y) =>
             {
                 Vector2 d = new Vector2(x - 7.5f, y - 7.5f);
@@ -582,8 +584,50 @@ namespace GJ.PSX.EditorTools
             var m = new Material(shader);
             m.SetTexture("_BaseMap", tex);
             m.SetColor("_EmissionColor", emission ?? Color.black);
+            m.SetFloat("_Affine", SteadyTexture(name) ? 0f : 0.25f);
             SaveMaterial(name, m);
         }
+
+        // The PS1's affine texture wobble is part of the look, but on big flat panels and anything with writing on it
+        // (the door, signs, notes, displays) it makes the picture swim as you walk past; those keep their textures still.
+        static bool SteadyTexture(string name) =>
+            name.StartsWith("Sign") || name.StartsWith("Note") || name == "VaultMetal" || name == "Display" || name == "Paper" ||
+            name == "Calendar" || name == "Notice" || name == "Poster" || name == "Photo" || name == "ClockFace" ||
+            name == "FirstAid" || name == "Hazard" || name == "Gauge" || name == "ExitGlow" || name == "TankPaint";
+
+        // A handwritten page: aged paper darkening to the edges, faint rules, lines of ink scrawl with gaps for words,
+        // a fold across the middle, a coffee ring and a dog-eared corner. torn: a ragged top edge, a scrap rather than
+        // a diary page.
+        static Texture2D NoteTexture(string name, int seed, bool torn) => MakeTexture(name, 48, 64, (x, y) =>
+        {
+            float u = x / 47f, v = y / 63f;
+            float edge = Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(v, 1f - v));
+            var c = new Color(0.8f, 0.74f, 0.6f);
+            c = Shade(c, (Hash(x / 3, y / 3, seed) - 0.5f) * 0.05f + (Hash(x, y, seed + 1) - 0.5f) * 0.04f - Mathf.Clamp01(0.12f - edge) * 1.2f);
+            if (torn && y > 58 - (int)(Hash(x / 2, 0, seed + 2) * 4f)) return new Color(0.05f, 0.045f, 0.04f);
+            if (!torn && x == 5) c = Color.Lerp(c, new Color(0.7f, 0.3f, 0.3f), 0.4f);            // margin rule
+            if (y % 5 == 0 && y < 56) c = Shade(c, -0.04f);                                        // faint ruling
+            // Ink: one scrawled line just above each rule, broken into words, the first line heavier (a date).
+            int row = y / 5, ly = y % 5;
+            if (y < 55 && y > 6 && (ly == 1 || ly == 2))
+            {
+                float word = Hash(x / 5, row, seed + 3);
+                float lineEnd = 40f - Hash(0, row, seed + 4) * 22f;
+                bool ink = x > 7 && x < lineEnd && word > 0.22f && Hash(x, y + row * 7, seed + 5) > (ly == 1 ? 0.25f : 0.55f);
+                if (row == 10) ink = x > 7 && x < 24 && Hash(x, y, seed + 6) > 0.15f;
+                if (ink) c = Color.Lerp(c, new Color(0.1f, 0.12f, 0.24f), 0.85f);
+            }
+            // Fold crease across the middle: a shadow line and a highlight under it.
+            if (y == 31) c = Shade(c, -0.09f);
+            if (y == 30) c = Shade(c, 0.05f);
+            // Coffee ring.
+            float ring = Vector2.Distance(new Vector2(x, y), new Vector2(34f, 14f));
+            if (Mathf.Abs(ring - 6.5f) < 0.8f) c = Color.Lerp(c, new Color(0.5f, 0.36f, 0.2f), 0.5f);
+            else if (ring < 6f) c = Color.Lerp(c, new Color(0.6f, 0.48f, 0.32f), 0.15f);
+            // Dog-eared corner, bottom right.
+            if ((47 - x) + y < 7) c = (47 - x) + y < 6 ? Shade(new Color(0.7f, 0.64f, 0.52f), -0.05f) : new Color(0.2f, 0.17f, 0.13f);
+            return c;
+        });
 
         static void Additive(string name, Shader shader, Texture2D tex, Color color)
         {
@@ -1403,16 +1447,8 @@ namespace GJ.PSX.EditorTools
             Cyl("SpilledPowder", "Powder", new Vector3(0.3f, 0, 0.35f), 0.22f, 0.012f, 7, default, 1f, barrel);
 
             // Gas cylinders chained to the left wall.
-            for (int i = 0; i < 2; i++)
-            {
-                var gas = new GameObject("GasCylinder_" + i).transform;
-                gas.SetParent(props, false);
-                gas.localPosition = new Vector3(-2.68f, 0, 3.1f + i * 0.34f);
-                Cyl("Body", "RedPaint", Vector3.zero, 0.14f, 1.25f, 8, default, 1f, gas, true);
-                Cyl("Shoulder", "RedPaint", new Vector3(0, 1.25f, 0), 0.09f, 0.08f, 8, default, 1f, gas);
-                Cyl("Valve", "Steel", new Vector3(0, 1.33f, 0), 0.035f, 0.1f, 6, default, 1f, gas);
-            }
-            Block("Chain", "DarkMetal", new Vector3(-2.72f, 0.95f, 3.27f), new Vector3(0.03f, 0.03f, 0.75f), default, 1f, props);
+            for (int i = 0; i < 2; i++) GasCylinder(new Vector3(-2.66f, 0, 3.1f + i * 0.34f), -90f + i * 25f, props);
+            GasBracket(new Vector3(RoomMin.x, 0.95f, 3.27f), 0.68f, props);
 
             // Fire extinguisher and a warning sign.
             Cyl("Extinguisher", "RedPaint", new Vector3(-2.82f, 0.55f, 5.1f), 0.08f, 0.5f, 8, default, 1f, props);
@@ -1519,9 +1555,9 @@ namespace GJ.PSX.EditorTools
             Plate("Sign_Exit", "SignExit", new Vector3(DoorHalfWidth - 0.012f, 2.0f, RoomMax.z + 2.2f), 0.5f, 0.17f, Vector3.left, details);
 
             // Notes: backstory, and the puzzle's hint for anyone who reads.
-            var note1 = Plate("Note_Day3", "Paper", new Vector3(2.38f, 0.94f, 3.55f), 0.2f, 0.26f, Vector3.up, details, 12f);
+            var note1 = Plate("Note_Day3", "NoteDiary", new Vector3(2.38f, 0.945f, 3.55f), 0.2f, 0.26f, Vector3.up, details, 12f);
             note1.AddComponent<Game.ReadableNote>().text = NoteDay3;
-            var note2 = Plate("Note_Door", "Paper", new Vector3(-2.3f, 1.55f, doorZ), 0.22f, 0.28f, Vector3.back, details, -4f);
+            var note2 = Plate("Note_Door", "NoteScrap", new Vector3(-2.3f, 1.55f, doorZ - 0.004f), 0.22f, 0.28f, Vector3.back, details, -4f);
             note2.AddComponent<Game.ReadableNote>().text = NoteDoor;
 
             // Control panel left of the door, wired to the frame.
@@ -1561,12 +1597,12 @@ namespace GJ.PSX.EditorTools
             Cyl("Reel_L", "Steel", new Vector3(2.44f, 1.02f, 2.73f), 0.045f, 0.012f, 8, default, 4f, details);
             Cyl("Reel_R", "Steel", new Vector3(2.56f, 1.02f, 2.77f), 0.045f, 0.012f, 8, default, 4f, details);
             Cyl("Mug", "Steel", new Vector3(2.32f, 0.935f, 3.95f), 0.04f, 0.09f, 7, default, 4f, details);
-            Plate("Sheet_Bench", "Paper", new Vector3(2.62f, 0.937f, 3.3f), 0.18f, 0.24f, Vector3.up, details, -25f);
+            Plate("Sheet_Bench", "Paper", new Vector3(2.62f, 0.945f, 3.3f), 0.18f, 0.24f, Vector3.up, details, -25f);
 
             // A chair knocked over by the bench.
             var chair = new GameObject("Chair").transform;
             chair.SetParent(details, false);
-            chair.localPosition = new Vector3(1.5f, 0.02f, 4.4f);
+            chair.localPosition = new Vector3(1.5f, 0.22f, 4.4f);
             Model("Furniture/chair", Vector3.zero, 25f, 0f, chair, -88f, null, new Vector3(0.42f, 0.9f, 0.42f));
 
             // Rubble where the ceiling has given way.
@@ -1582,7 +1618,7 @@ namespace GJ.PSX.EditorTools
             // Papers blown across the floor.
             for (int i = 0; i < 6; i++)
             {
-                var p = new Vector3(0.4f + Hash(i, 6, 59) * 2f, 0.004f + i * 0.0005f, 1.5f + Hash(i, 7, 60) * 4f);
+                var p = new Vector3(0.4f + Hash(i, 6, 59) * 2f, 0.01f + i * 0.002f, 1.5f + Hash(i, 7, 60) * 4f);
                 Plate("FloorSheet", "Paper", p, 0.18f, 0.24f, Vector3.up, details, Hash(i, 8, 61) * 360f);
             }
 
@@ -1596,7 +1632,7 @@ namespace GJ.PSX.EditorTools
             WallLamp(new Vector3(RoomMax.x - 0.2f, 2.3f, 1.6f), Vector3.left, details);
 
             // A miner's helmet dropped by the door, its lamp long dead.
-            Helmet(new Vector3(0.72f, 0f, 7.15f), 35f, details);
+            Helmet(new Vector3(0.72f, 0.1f, 7.15f), 35f, details);
 
             // Floor drain in the middle of the room.
             Block("FloorDrain", "Grate", new Vector3(0.95f, 0.004f, 5.6f), new Vector3(0.34f, 0.008f, 0.34f), new Vector3(0, 10, 0), 1f / 0.34f, details);
@@ -1605,6 +1641,58 @@ namespace GJ.PSX.EditorTools
             for (int i = 0; i < 9; i++)
                 Block("ChainLink", "DarkMetal", new Vector3(-1.1f, 3.12f - i * 0.065f, 4.2f), new Vector3(0.022f, 0.06f, 0.008f),
                       new Vector3(0, i % 2 == 0 ? 0 : 90, 0), 4f, details);
+        }
+
+        // A welding-gas cylinder: rounded shoulder, neck, a valve with its hand wheel inside a protective collar,
+        // a white band with a hazard diamond, and a foot ring.
+        static void GasCylinder(Vector3 pos, float yaw, Transform parent)
+        {
+            var g = Group("GasCylinder", pos, yaw, parent);
+            const float r = 0.14f, h = 1.08f;
+            Cyl("Body", "RedPaint", Vector3.zero, r, h, 14, default, 1f, g, true);
+            var dome = new MeshBuilder();
+            dome.Tube(new Vector3(0, h, 0), new Vector3(0, h + 0.07f, 0), r, r * 0.8f, 14, Vector3.forward, 2f);
+            dome.Tube(new Vector3(0, h + 0.07f, 0), new Vector3(0, h + 0.12f, 0), r * 0.8f, r * 0.42f, 14, Vector3.forward, 2f);
+            Place("Shoulder", dome, "RedPaint", Vector3.zero, default, g);
+            Cyl("Neck", "Steel", new Vector3(0, h + 0.12f, 0), 0.035f, 0.05f, 8, default, 4f, g);
+            Cyl("Valve", "Chrome", new Vector3(0, h + 0.17f, 0), 0.03f, 0.06f, 8, default, 4f, g);
+            Cyl("Outlet", "Chrome", new Vector3(0.025f, h + 0.195f, 0), 0.012f, 0.05f, 6, new Vector3(0, 0, -90), 6f, g);
+            var wheel = new GameObject("HandWheel").transform;
+            wheel.SetParent(g, false);
+            wheel.localPosition = new Vector3(0, h + 0.235f, 0);
+            ValveWheel(wheel, 0.04f, "DarkMetal");
+            var collar = new MeshBuilder();
+            OpenDrum(collar, new Vector3(0, h + 0.1f, 0), 0.075f, 0.16f, 10, 0.008f, 4f);
+            Place("Collar", collar, "DarkMetal", Vector3.zero, default, g);
+            Cyl("Band", "Enamel", new Vector3(0, 0.82f, 0), r + 0.003f, 0.07f, 14, default, 2f, g);
+            Plate("Diamond", "Hazard", new Vector3(0, 0.62f, -r - 0.004f), 0.1f, 0.1f, Vector3.back, g, 45f);
+            var foot = new MeshBuilder();
+            OpenDrum(foot, Vector3.zero, r + 0.012f, 0.06f, 14, 0.01f, 2f);
+            Place("FootRing", foot, "DarkMetal", Vector3.zero, default, g);
+        }
+
+        // Wall bracket holding the cylinders: two arms out from the wall and a sagging chain across them.
+        static void GasBracket(Vector3 wallPoint, float span, Transform parent)
+        {
+            var g = Group("GasBracket", wallPoint, 0f, parent);
+            foreach (float z in new[] { -span * 0.5f, span * 0.5f })
+            {
+                Block("Arm", "DarkMetal", new Vector3(0.17f, 0, z), new Vector3(0.34f, 0.04f, 0.03f), default, 4f, g);
+                Block("Plate", "DarkMetal", new Vector3(0.01f, 0, z), new Vector3(0.02f, 0.1f, 0.08f), default, 4f, g);
+            }
+            var chain = new MeshBuilder();
+            const int links = 14;
+            for (int i = 0; i < links; i++)
+            {
+                float k = (i + 0.5f) / links;
+                float z = Mathf.Lerp(-span * 0.5f, span * 0.5f, k);
+                float sag = Mathf.Sin(k * Mathf.PI) * 0.03f;
+                var c = new Vector3(0.48f, -sag, z);
+                chain.M = Matrix4x4.TRS(c, Quaternion.identity, Vector3.one);
+                chain.Box(Vector3.zero, i % 2 == 0 ? new Vector3(0.008f, 0.025f, 0.045f) : new Vector3(0.025f, 0.008f, 0.045f), 8f);
+                chain.M = Matrix4x4.identity;
+            }
+            Place("Chain", chain, "Steel", Vector3.zero, default, g);
         }
 
         static void WallLamp(Vector3 pos, Vector3 facing, Transform parent)

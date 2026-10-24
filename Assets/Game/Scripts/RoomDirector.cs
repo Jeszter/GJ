@@ -440,12 +440,14 @@ namespace GJ.Game
             // A scrap of yellowed paper held up to the light.
             _paper = new GameObject("Paper").AddComponent<Image>();
             _paper.transform.SetParent(canvasGo.transform, false);
-            _paper.color = new Color(0.78f, 0.72f, 0.6f);
+            _paper.sprite = PaperSprite();
+            _paper.color = Color.white;
             _paper.raycastTarget = false;
             _paper.rectTransform.sizeDelta = new Vector2(230, 170);
             _paper.rectTransform.localRotation = Quaternion.Euler(0, 0, 1.5f);
             _noteText = MakeText(_paper.transform, font, 11, TextAnchor.MiddleLeft, new Vector2(0.5f, 0.5f), Vector2.zero);
-            _noteText.color = new Color(0.16f, 0.1f, 0.07f);
+            _noteText.color = new Color(0.1f, 0.11f, 0.22f);
+            _noteText.fontStyle = FontStyle.Italic;
             Destroy(_noteText.GetComponent<Shadow>());
             _noteText.rectTransform.sizeDelta = new Vector2(200, 150);
             _noteText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -458,6 +460,35 @@ namespace GJ.Game
             _controls.lineSpacing = 1.2f;
             _prompt = MakeText(canvasGo.transform, font, 11, TextAnchor.LowerCenter, new Vector2(0.5f, 0), new Vector2(0, 18));
             _message = MakeText(canvasGo.transform, font, 14, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero);
+        }
+
+        // The sheet held up to read: yellowed, darker toward ragged edges, a fold, a coffee ring, a pinhole.
+        static Sprite PaperSprite()
+        {
+            const int w = 115, h = 85;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            var px = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float n = Mathf.PerlinNoise(x * 0.15f, y * 0.15f);
+                    // Ragged outline: each edge eaten in by a noisy amount.
+                    float bite = Mathf.PerlinNoise(x * 0.4f, y * 0.4f + 7f) * 3f;
+                    bool outside = x < bite || y < bite || x > w - 1 - bite || y > h - 1 - bite;
+                    if (outside) { px[y * w + x] = new Color32(0, 0, 0, 0); continue; }
+                    float edge = Mathf.Min(Mathf.Min(x, w - 1 - x), Mathf.Min(y, h - 1 - y));
+                    var c = new Color(0.82f, 0.76f, 0.62f) * (0.92f + n * 0.12f) * Mathf.Lerp(0.72f, 1f, Mathf.Clamp01(edge / 9f));
+                    if (y == h / 2) c *= 0.9f;
+                    if (y == h / 2 - 1) c *= 1.05f;
+                    float ring = Vector2.Distance(new Vector2(x, y), new Vector2(w * 0.8f, h * 0.22f));
+                    if (Mathf.Abs(ring - 9f) < 1f) c = Color.Lerp(c, new Color(0.5f, 0.35f, 0.2f), 0.45f);
+                    if (Vector2.Distance(new Vector2(x, y), new Vector2(w / 2f, h - 5f)) < 1f) c = new Color(0.2f, 0.17f, 0.13f);
+                    c.a = 1f;
+                    px[y * w + x] = c;
+                }
+            tex.SetPixels32(px);
+            tex.Apply(false);
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f);
         }
 
         static Text MakeText(Transform parent, Font font, int size, TextAnchor anchor, Vector2 pivot, Vector2 offset)
