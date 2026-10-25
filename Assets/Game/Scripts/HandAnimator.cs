@@ -235,7 +235,7 @@ namespace GJ.Game
         {
             if (reachHand != null)
             {
-                if (_reaching == null) _reaching = StartCoroutine(TakeRoutine());
+                if (_reaching == null) _reaching = Host.StartCoroutine(TakeRoutine(false));
                 return;
             }
             if (_act != null) return;
@@ -243,9 +243,22 @@ namespace GJ.Game
         }
 
         Coroutine _reaching;
+
+        // The left hand works with the lighter hand put away too, when this object is off: its coroutines run on the
+        // head, which is always there.
+        MonoBehaviour Host
+        {
+            get
+            {
+                if (isActiveAndEnabled) return this;
+                var host = reachHand.parent.GetComponent<ReachHost>();
+                return host != null ? host : reachHand.parent.gameObject.AddComponent<ReachHost>();
+            }
+        }
         Quaternion[] _reachRest;
 
-        IEnumerator TakeRoutine()
+        // Taking (the fingers close on it) or pushing (the palm turned out flat, fingers straight, a firmer shove).
+        IEnumerator TakeRoutine(bool push)
         {
             if (_reachRest == null)
             {
@@ -256,26 +269,46 @@ namespace GJ.Game
             }
             reachHand.gameObject.SetActive(true);
             Quaternion low = Quaternion.Euler(-10f, 50f, 0f), out_ = Quaternion.Euler(-40f, 60f, 0f);   // mirrored arm: the forearm from the lower left
+            Vector3 reachTo = ReachOut;
+            if (push)
+            {
+                // Up to the middle of the view, wrist cocked back so the palm faces the door.
+                out_ = Quaternion.Euler(-20f, 75f, -70f);
+                reachTo = new Vector3(-0.06f, -0.12f, 0.5f);
+            }
             for (float t = 0f; t < 0.2f; t += Time.deltaTime)
             {
                 float k = 1f - (1f - t / 0.2f) * (1f - t / 0.2f);
-                reachHand.localPosition = Vector3.Lerp(ReachLow, ReachOut, k);
+                reachHand.localPosition = Vector3.Lerp(ReachLow, reachTo, k);
                 reachHand.localRotation = Quaternion.Slerp(low, out_, k);
                 Curl(0f);
                 yield return null;
             }
-            reachHand.localPosition = ReachOut;
-            for (float t = 0f; t < 0.12f; t += Time.deltaTime)
+            reachHand.localPosition = reachTo;
+            if (push)
             {
-                Curl(t / 0.12f);
-                yield return null;
+                // The shove: a jolt forward and back, fingers straight.
+                for (float t = 0f; t < 0.22f; t += Time.deltaTime)
+                {
+                    reachHand.localPosition = reachTo + Vector3.forward * 0.07f * Mathf.Sin(t / 0.22f * Mathf.PI);
+                    yield return null;
+                }
+                reachHand.localPosition = reachTo;
             }
-            Curl(1f);
-            yield return new WaitForSeconds(0.1f);
+            else
+            {
+                for (float t = 0f; t < 0.12f; t += Time.deltaTime)
+                {
+                    Curl(t / 0.12f);
+                    yield return null;
+                }
+                Curl(1f);
+                yield return new WaitForSeconds(0.1f);
+            }
             for (float t = 0f; t < 0.28f; t += Time.deltaTime)
             {
                 float k = Mathf.SmoothStep(0f, 1f, t / 0.28f);
-                reachHand.localPosition = Vector3.Lerp(ReachOut, ReachLow, k) + Vector3.up * Mathf.Sin(k * Mathf.PI) * 0.03f;
+                reachHand.localPosition = Vector3.Lerp(reachTo, ReachLow, k) + Vector3.up * Mathf.Sin(k * Mathf.PI) * 0.03f;
                 reachHand.localRotation = Quaternion.Slerp(out_, low, k);
                 yield return null;
             }
@@ -293,9 +326,14 @@ namespace GJ.Game
                 reachThumb[i].localRotation = _reachRest[reachFingers.Length + i] * Quaternion.Euler(k * 30f, 0f, 0f);
         }
 
-        // Palm out against a door or a weight and shove.
+        // Palm out against a door or a weight and shove: the left hand, flat, the lighter hand staying where it is.
         public void Push()
         {
+            if (reachHand != null)
+            {
+                if (_reaching == null) _reaching = Host.StartCoroutine(TakeRoutine(true));
+                return;
+            }
             if (_act != null) return;
             _act = StartCoroutine(Move(0.2f, 0.12f, 0.3f, 1.1f, 0.8f, 1f, false));
         }
@@ -479,4 +517,7 @@ namespace GJ.Game
             if (audioSource != null && clip != null) audioSource.PlayOneShot(clip, volume);
         }
     }
+
+    // Runs the left hand's moves while the lighter hand is switched off.
+    public class ReachHost : MonoBehaviour { }
 }

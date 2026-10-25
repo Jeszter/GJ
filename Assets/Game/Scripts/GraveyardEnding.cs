@@ -62,6 +62,7 @@ namespace GJ.Game
             d.enabled = false;
             var veil = d.Veil;
             HideHud(veil);
+            d.HideHud();
             Play(heartClip, head.position, 0.7f);
 
             // A. Stumbling out through the gate: slower every step, the view swaying and sinking.
@@ -213,12 +214,25 @@ namespace GJ.Game
                 veil.color = new Color(0f, 0f, 0f, open);
                 yield return null;
             }
-            veil.color = Color.black;
             if (engine != null) engine.Stop();
             AudioListener.pause = false;
-            yield return new WaitForSeconds(1.1f);
-            Play(shotClip, head.position + head.forward * 3f, 1f);
-            yield return new WaitForSeconds(2.2f);
+            // The first shot: right there, a white flash through the eyelids and the view knocked sideways.
+            Shot(head.position + head.right * 0.6f);
+            Quaternion hit = head.rotation;
+            for (float t = 0f; t < 0.5f; t += Time.deltaTime)
+            {
+                float k = t / 0.5f;
+                veil.color = Color.Lerp(new Color(1f, 0.95f, 0.85f, 1f), Color.black, k * 2f);
+                head.rotation = hit * Quaternion.Euler(-12f * (1f - k), 0f, 25f * k);
+                yield return null;
+            }
+            // Black. A long breath of nothing, then the second.
+            veil.color = Color.black;
+            d.Stun(true);
+            yield return new WaitForSeconds(1.6f);
+            d.Stun(false);
+            Shot(head.position + head.forward * 2f);
+            yield return new WaitForSeconds(2.4f);
             d.flow.OnRoomCleared();
         }
 
@@ -247,6 +261,8 @@ namespace GJ.Game
 
         void Update()
         {
+            // Nothing of the game's HUD over the ending, even if a pause brought the director back for a moment.
+            if (Running && _director != null) _director.HideHud();
             // The beacon on the roof goes round and round, its light sweeping the grass.
             if (beacon != null && truck != null && truck.gameObject.activeInHierarchy)
             {
@@ -340,6 +356,18 @@ namespace GJ.Game
         }
 
         static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude > 0.0001f ? v : Vector3.forward; }
+
+        // A gunshot loud enough to hurt: the clip twice over itself, a hair apart, for the crack and the slap back.
+        void Shot(Vector3 at)
+        {
+            if (shotClip == null) return;
+            var src = new GameObject("Shot").AddComponent<AudioSource>();
+            src.transform.position = at;
+            src.spatialBlend = 0f;
+            src.PlayOneShot(shotClip, 1f);
+            src.PlayOneShot(shotClip, 0.7f);
+            Destroy(src.gameObject, shotClip.length + 0.2f);
+        }
 
         static void Play(AudioClip clip, Vector3 at, float volume)
         {

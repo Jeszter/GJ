@@ -684,6 +684,37 @@ namespace GJ.PSX.EditorTools
                 return line ? new Color(0.19f, 0.09f, 0.08f) : Shade(new Color(0.3f, 0.16f, 0.14f), (Hash(x, y, 199) - 0.5f) * 0.05f);
             }), new Color(0.03f, 0.015f, 0.012f));
             Lit("Void", lit, Plain("void", new Color(0f, 0f, 0f), 0f));
+            // The face under the hood, 32x32, chin at the bottom: grey-white skin bruised round the edges, two gouged
+            // sockets (dark, wet red at the rims) at two thirds up, three cuts across it, and the mouth slit wide and
+            // sewn shut with black stitches, blood run down from everything.
+            Lit("MutilatedFace", lit, MakeTexture("mutilated_face", 32, (x, y) =>
+            {
+                // An oval, narrowing to the chin, sinking into the black of the hood at its edge.
+                float dx = (x - 15.5f) / (13f - Mathf.Max(0f, 14f - y) * 0.35f), dy = (y - 15f) / 15.5f;
+                float oval = Mathf.Sqrt(dx * dx + dy * dy);
+                if (oval > 1f) return Color.black;
+                var skin = Shade(new Color(0.48f, 0.45f, 0.44f), (Hash(x, y, 470) - 0.5f) * 0.1f);
+                skin = Color.Lerp(skin, new Color(0.22f, 0.15f, 0.17f), Mathf.Clamp01((oval - 0.6f) / 0.4f));
+                skin = Color.Lerp(skin, Color.black, Mathf.Clamp01((oval - 0.85f) / 0.15f));
+                var blood = new Color(0.42f, 0.03f, 0.03f);
+                foreach (int ex in new[] { 10, 21 })
+                {
+                    float d = new Vector2((x - ex) / 1.2f, y - 21).magnitude;
+                    if (d < 3.2f) return d < 2.2f ? new Color(0.05f, 0.01f, 0.01f) : blood;
+                    // Tears of blood down from each socket.
+                    if (Mathf.Abs(x - ex - (ex > 16 ? 1 : -1)) < 1 && y < 19 && y > 19 - 4 - (ex % 5)) return blood;
+                }
+                // Cuts: across the brow, from the left eye down over the nose, and down the right cheek.
+                if (Mathf.Abs((y - 27) - (x - 6) * 0.25f) < 0.7f && x > 4 && x < 26) return blood;
+                if (Mathf.Abs((x - 9) - (21 - y) * 0.55f) < 0.7f && y < 20 && y > 8) return blood;
+                if (Mathf.Abs((x - 25) + (17 - y) * 0.3f) < 0.7f && y < 18 && y > 5) return Shade(blood, -0.1f);
+                // The mouth: slit from ear to ear, black and wet, stitched across every other pixel.
+                float mouth = 9f + Mathf.Abs(x - 15.5f) * 0.18f;
+                if (x > 4 && x < 27 && Mathf.Abs(y - mouth) < 1.1f) return (x % 3 == 0) ? new Color(0.08f, 0.07f, 0.07f) : new Color(0.2f, 0.02f, 0.02f);
+                if (x > 5 && x < 26 && x % 3 == 0 && Mathf.Abs(y - mouth) < 2.2f) return new Color(0.08f, 0.07f, 0.07f);
+                if (x > 12 && x < 19 && y < mouth - 1 && y > 2 && Hash(x, 0, 471) > 0.55f) return blood;
+                return skin;
+            }), new Color(0.02f, 0.015f, 0.015f));
             Lit("PaleSkin", lit, Plain("pale_skin", new Color(0.86f, 0.84f, 0.94f), 0.04f), new Color(0.12f, 0.12f, 0.14f));
             Lit("Mask", lit, MakeTexture("mask", 16, 20, (x, y) =>
             {

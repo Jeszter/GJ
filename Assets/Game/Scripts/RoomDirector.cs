@@ -247,6 +247,15 @@ namespace GJ.Game
         // The overlay over the whole view, for a cutscene that has switched the director off and dims the view itself.
         public Image Veil => _fade;
 
+        // For a cutscene: the air, the lungs, the attempt count, the controls and the prompt all off the screen.
+        public void HideHud()
+        {
+            foreach (var g in new Component[] { _airLabel, _attempt, _controls, _prompt })
+                if (g != null) g.gameObject.SetActive(false);
+            if (_pips != null) foreach (var p in _pips) if (p != null) p.gameObject.SetActive(false);
+            if (_pipRings != null) foreach (var p in _pipRings) if (p != null) p.gameObject.SetActive(false);
+        }
+
         Color _flashColor;
         float _flashLeft, _flashTime;
 
@@ -353,9 +362,10 @@ namespace GJ.Game
             {
                 if (canAct)
                 {
-                    if (handAnimator != null && Holding)
+                    if (handAnimator != null)
                     {
-                        if (option.Value.reach) handAnimator.Reach();
+                        // The lighter hand dips to a fuse; taking and pushing is the left hand's, lighter or not.
+                        if (option.Value.reach) { if (Holding) handAnimator.Reach(); }
                         else if (option.Value.gesture == RoomPuzzle.Gesture.Grab) handAnimator.Grab();
                         else if (option.Value.gesture == RoomPuzzle.Gesture.Push) handAnimator.Push();
                     }

@@ -120,10 +120,14 @@ namespace GJ.PSX.EditorTools
             var belt = new MeshBuilder();
             belt.Tube(new Vector3(0f, 0.96f, 0f), new Vector3(0f, 0.99f, 0f), 0.255f, 0.255f, 10, Vector3.forward, 4f);
             Place("Belt", belt, "Leather", Vector3.zero, default, g);
-            // Where a face should be: nothing, only black shadow in the hood, narrow at the chin, broad at the brow.
+            // Deep shadow in the hood, narrow at the chin, broad at the brow, and in it a face that has been taken
+            // apart: grey skin, the eyes gouged out, cut across and across, the mouth slit to the ears and stitched.
             var face = new MeshBuilder { FaceShade = false };
-            face.Limb(new Vector3(0f, 1.5f, 0.186f), new Vector3(0f, 1.83f, 0.15f), 0.09f, 0.01f, 0.22f, 0.01f, Vector3.forward, 4f);
+            face.Limb(new Vector3(0f, 1.5f, 0.17f), new Vector3(0f, 1.83f, 0.135f), 0.09f, 0.01f, 0.22f, 0.01f, Vector3.forward, 4f);
             Place("Void", face, "Void", Vector3.zero, default, g);
+            var skin = new MeshBuilder { FaceShade = false };
+            skin.Quad(new Vector3(0.12f, 1.56f, 0.19f), new Vector3(-0.24f, 0f, 0f), new Vector3(0f, 0.24f, -0.03f), 1f / 0.24f);
+            Place("Face", skin, "MutilatedFace", Vector3.zero, default, g);
 
             // Pale hands out of the cuffs, thumbs up the side.
             var hands = new MeshBuilder();
