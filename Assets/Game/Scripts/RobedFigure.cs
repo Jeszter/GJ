@@ -119,6 +119,30 @@ namespace GJ.Game
             }
         }
 
+        // A boot in the chest: no damage, but it is thrown back a long step, its swing broken off, and it needs a moment
+        // to come again.
+        public void Kick(Vector3 from)
+        {
+            if (Dead) return;
+            Play(hitClip, 1f);
+            _stagger = 1.1f;
+            Show(reach);
+            Vector3 away = transform.position - from;
+            away.y = 0f;
+            StartCoroutine(Shove(away.sqrMagnitude > 0.0001f ? away.normalized * 1.4f : -transform.forward * 1.4f));
+        }
+
+        IEnumerator Shove(Vector3 by)
+        {
+            Vector3 start = transform.position;
+            for (float t = 0f; t < 0.3f && !Dead; t += Time.deltaTime)
+            {
+                float k = 1f - (1f - t / 0.3f) * (1f - t / 0.3f);
+                transform.position = start + by * k;
+                yield return null;
+            }
+        }
+
         IEnumerator Fall()
         {
             Dead = true;

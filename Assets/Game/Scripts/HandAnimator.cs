@@ -49,6 +49,7 @@ namespace GJ.Game
         float _thrust;         // 0..1+ hand driven forward (grabbing, pushing, punching)
         float _open;           // 0..1 fingers spread off the case (grabbing, pushing)
         float _palm;           // 0..1 wrist tipped back, palm out (pushing)
+        float _twist;          // degrees the fist turns over about the arm (punching)
         Coroutine _act;
         System.Action _finishAct;  // lands the running act at once if it gets cut short
 
@@ -86,7 +87,7 @@ namespace GJ.Game
             _squeeze = 0f;
             _thumbLift = 0f;
             _thumbPress = 0f;
-            _thrust = _open = _palm = 0f;
+            _thrust = _open = _palm = _twist = 0f;
         }
 
         // Start dark (lid shut, no flame), then light up on our own.
@@ -235,11 +236,49 @@ namespace GJ.Game
             _act = StartCoroutine(Move(0.2f, 0.12f, 0.3f, 1.1f, 0.8f, 1f, false));
         }
 
-        // A short punch, the fist squeezed shut on the way out.
+        // A punch thrown properly: drawn back and down a touch with the fist tightening, driven out hard into the middle
+        // of the view with the wrist turning over, held a beat at full reach, then pulled back to guard.
         public void Jab()
         {
             if (_act != null) return;
-            _act = StartCoroutine(Move(0.06f, 0.04f, 0.16f, 1.5f, 0f, 0f, false));
+            _act = StartCoroutine(PunchRoutine());
+        }
+
+        // When the punch lands, from the moment it is thrown.
+        public const float PunchLands = 0.13f;
+
+        IEnumerator PunchRoutine()
+        {
+            _finishAct = null;
+            for (float t = 0f; t < 0.08f; t += Time.deltaTime)
+            {
+                float k = t / 0.08f;
+                _thrust = -0.4f * Mathf.SmoothStep(0f, 1f, k);
+                _squeeze = k;
+                _twist = 12f * k;
+                yield return null;
+            }
+            for (float t = 0f; t < 0.06f; t += Time.deltaTime)
+            {
+                float k = t / 0.06f;
+                k = 1f - (1f - k) * (1f - k) * (1f - k);
+                _thrust = Mathf.Lerp(-0.4f, 2.4f, k);
+                _twist = Mathf.Lerp(12f, -32f, k);
+                yield return null;
+            }
+            _thrust = 2.4f;
+            _twist = -32f;
+            yield return new WaitForSeconds(0.05f);
+            for (float t = 0f; t < 0.24f; t += Time.deltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / 0.24f);
+                _thrust = Mathf.Lerp(2.4f, 0f, k);
+                _twist = Mathf.Lerp(-32f, 0f, k);
+                _squeeze = 1f - k;
+                yield return null;
+            }
+            _thrust = _twist = _squeeze = 0f;
+            _act = null;
         }
 
         public bool Busy => _act != null;
@@ -327,7 +366,7 @@ namespace GJ.Game
 
             transform.localPosition = _restPos + new Vector3(_swayNow.x, _swayNow.y + breath, 0f) + bobOffset + shake + reach;
             transform.localRotation = _restRot
-                * Quaternion.Euler(-_swayNow.y * 400f + _reach * 28f - _palm * 35f, _swayNow.x * 400f - _thrust * 8f, -_swayNow.x * 300f + _reach * -10f);
+                * Quaternion.Euler(-_swayNow.y * 400f + _reach * 28f - _palm * 35f, _swayNow.x * 400f - _thrust * 8f, -_swayNow.x * 300f + _reach * -10f + _twist);
 
             AnimateFingers(dt);
         }

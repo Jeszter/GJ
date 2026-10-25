@@ -244,6 +244,9 @@ namespace GJ.Game
         // Muffle the world like a blow to the head (or let it back in).
         public void Stun(bool on) => SetMuffled(on);
 
+        // The overlay over the whole view, for a cutscene that has switched the director off and dims the view itself.
+        public Image Veil => _fade;
+
         Color _flashColor;
         float _flashLeft, _flashTime;
 
@@ -363,7 +366,7 @@ namespace GJ.Game
 
             // Snap the Zippo shut (darkness, and the flame is safe in your pocket) or flick it open again.
             var mouse = Mouse.current;
-            if (handAnimator != null && Holding && ((kb != null && kb.fKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)))
+            if (handAnimator != null && Holding && !_bare && ((kb != null && kb.fKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)))
             {
                 // With the revolver out, the first press just puts it away and brings the lighter back up.
                 if (revolver != null && revolver.Drawn) revolver.Holster();

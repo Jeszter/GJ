@@ -753,6 +753,25 @@ namespace GJ.PSX.EditorTools
             Additive("MoonGlow", add, Glow(), new Color(0.85f, 0.88f, 1f) * 1.3f);
             Additive("Steam", add, Glow(), new Color(0.6f, 0.65f, 0.7f) * 0.18f);
             Additive("SparkFlash", add, Glow(), new Color(0.75f, 0.85f, 1f) * 2f);
+
+            // The end: the mine rescue truck that comes up the road at dawn, and the crew in it.
+            Lit("VanPaint", lit, MakeTexture("van_paint", 16, (x, y) =>
+                Shade(new Color(0.78f, 0.77f, 0.72f), (Hash(x, y, 340) - 0.5f) * 0.05f - (y < 3 ? 0.12f * (3 - y) / 3f : 0f))), new Color(0.06f, 0.06f, 0.055f));
+            Lit("VanRed", lit, Plain("van_red", new Color(0.62f, 0.1f, 0.07f), 0.05f), new Color(0.05f, 0.01f, 0.01f));
+            Lit("VanGlass", lit, Plain("van_glass", new Color(0.12f, 0.15f, 0.17f), 0.04f), new Color(0.02f, 0.025f, 0.03f));
+            Lit("Headlamp", lit, Plain("headlamp", Color.white, 0f), new Color(1f, 0.92f, 0.75f) * 2.4f);
+            Lit("TailLamp", lit, Plain("tail_lamp", Color.white, 0f), new Color(1f, 0.08f, 0.04f) * 1.8f);
+            Lit("Beacon", lit, Plain("beacon", Color.white, 0f), new Color(1f, 0.55f, 0.08f) * 2.4f);
+            Additive("BeaconHalo", add, Glow(), new Color(1f, 0.55f, 0.1f) * 0.55f);
+            Additive("HeadlampHalo", add, Glow(), new Color(1f, 0.92f, 0.75f) * 0.5f);
+            Lit("SignRescue", lit, Sign("sign_rescue", 64, 16, new Color(0.62f, 0.1f, 0.07f), new Color(0.95f, 0.93f, 0.88f), 1, "MINE RESCUE"));
+            // Orange rescue coveralls with a pale reflective band, a white hard hat.
+            Lit("RescueSuit", lit, MakeTexture("rescue_suit", 16, (x, y) =>
+                Shade(new Color(0.85f, 0.38f, 0.08f), (Hash(x / 2, y / 2, 341) - 0.5f) * 0.08f)), new Color(0.07f, 0.03f, 0.01f));
+            Lit("ReflectBand", lit, Plain("reflect_band", new Color(0.8f, 0.82f, 0.8f), 0.04f), new Color(0.2f, 0.2f, 0.2f));
+            Lit("HardHat", lit, Plain("hard_hat", new Color(0.88f, 0.87f, 0.82f), 0.05f), new Color(0.05f, 0.05f, 0.05f));
+            Lit("Asphalt", lit, MakeTexture("asphalt", 32, (x, y) =>
+                Shade(new Color(0.2f, 0.19f, 0.18f), (Hash(x, y, 342) - 0.5f) * 0.1f + (Hash(x / 4, y / 4, 343) - 0.5f) * 0.06f)));
         }
 
         static Material SaveMaterial(string name, Material m)

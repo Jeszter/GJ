@@ -192,7 +192,7 @@ namespace GJ.PSX.EditorTools
 
             // Ground far out under the trees, dense enough for the vertex lights.
             var ground = new MeshBuilder { FaceShade = false };
-            ground.Quad(new Vector3(-40f, 0f, -6f), new Vector3(80f, 0f, 0f), new Vector3(0f, 0f, 70f), 0.4f, 2f);
+            ground.Quad(new Vector3(-40f, 0f, -6f), new Vector3(80f, 0f, 0f), new Vector3(0f, 0f, 96f), 0.4f, 2f);
             Place("Ground", ground, "Grass", Vector3.zero, default, yard, true);
 
             // The chapel's back wall, and a broken iron fence round the plot with the gate in the far side.
@@ -323,17 +323,21 @@ namespace GJ.PSX.EditorTools
             clock.Quad(new Vector3(0.4f, 7.4f, 0.02f), new Vector3(-0.8f, 0f, 0f), new Vector3(0f, 0.27f, 0f), 1f / 0.8f);
             _displayDigits = Place("DisplayDigits", clock, "DisplayDigits", Vector3.zero, default, yard).GetComponent<Renderer>();
 
+            GraveyardRoad(yard);
             AutoColliders(_world);
 
             // After the auto colliders (none of this needs one): the forest, the mist, and the figure.
             var forest = new MeshBuilder();
             var dead = new MeshBuilder();
-            for (int i = 0; i < 170; i++)
+            for (int i = 0; i < 230; i++)
             {
                 float a = Hash(i, 0, 187) * Mathf.PI * 2f;
-                float x = Mathf.Lerp(-34f, 34f, Hash(i, 1, 188)), z = Mathf.Lerp(-4f, 62f, Hash(i, 2, 189));
+                float x = Mathf.Lerp(-34f, 34f, Hash(i, 1, 188)), z = Mathf.Lerp(-4f, 82f, Hash(i, 2, 189));
                 bool inside = x > RoomMin.x - 1.5f && x < RoomMax.x + 1.5f && z > -2f && z < RoomMax.z + 1.5f;
-                if (inside) continue;
+                // The road beyond the gate and the grass down to it are clear.
+                bool road = z > EndRoadZ - 5f && z < EndRoadZ + 4.5f;
+                bool clearing = Mathf.Abs(x) < 9f && z > RoomMax.z && z < EndRoadZ;
+                if (inside || road || clearing) continue;
                 float h = 6f + Hash(i, 3, 190) * 7f;
                 var p = new Vector3(x, 0f, z);
                 if (Hash(i, 4, 191) > 0.25f)
@@ -372,7 +376,10 @@ namespace GJ.PSX.EditorTools
 
             var rig = BuildPlayer(new Vector3(0f, 0f, 2.2f), 0f);
             BuildDirector(rig, puzzle, 4, "", 6, "");
-            UnityEngine.Object.FindFirstObjectByType<Game.RoomDirector>().revolver = BuildRevolver(rig);
+            var director = UnityEngine.Object.FindFirstObjectByType<Game.RoomDirector>();
+            director.revolver = BuildRevolver(rig);
+            director.exitZ = 10000f;   // out through the gate is the ending (GraveyardEnding), not the director's exit
+            GraveyardEnding(_world, puzzle, rig).moonlight = sun;
 
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.17f, 0.18f, 0.24f);
