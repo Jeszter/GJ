@@ -15,13 +15,13 @@ namespace GJ.PSX.EditorTools
 
         const string NoteDay9 =
             "DAY 9\n\n" +
-            "The boiler room. The bolt on the\n" +
-            "door runs on steam: water in the\n" +
-            "pot, the relief valve shut, and a\n" +
-            "flame under it.\n\n" +
-            "The only flame I have is the one\n" +
-            "in my hand. It boils slower than\n" +
-            "I can hold my breath.";
+            "The boiler. The bolt runs on steam:\n" +
+            "water in the pot, the relief valve\n" +
+            "shut, my lighter under it. It boils\n" +
+            "slower than I can hold my breath.\n\n" +
+            "I've stopped counting the times.\n" +
+            "I leave these for whoever comes\n" +
+            "down next. I think it's me.";
 
         const string NoteLine =
             "The lock's coil has its own line.\n" +

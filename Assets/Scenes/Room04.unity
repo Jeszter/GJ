@@ -17925,23 +17925,23 @@ MonoBehaviour:
   text: 'DAY 9
 
 
-    The boiler room. The bolt on the
+    The boiler. The bolt runs on steam:
 
-    door runs on steam: water
-    in the
+    water in the pot, the
+    relief valve
 
-    pot, the relief valve shut, and a
+    shut, my lighter under it. It boils
 
-    flame under it.
+    slower than I can
+    hold my breath.
 
 
-    The
-    only flame I have is the one
+    I''ve stopped counting the times.
 
-    in my hand. It boils slower than
+    I leave these for
+    whoever comes
 
-    I can
-    hold my breath.'
+    down next. I think it''s me.'
 --- !u!23 &955844121
 MeshRenderer:
   m_ObjectHideFlags: 0

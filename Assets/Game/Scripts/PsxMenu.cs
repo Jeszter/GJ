@@ -167,7 +167,8 @@ namespace GJ.Game
             {
                 var item = _items[i];
                 bool sel = i == _index;
-                string label = item.Value != null ? $"{item.Label}   < {item.Value()} >" : item.Label;
+                string name = Loc.T(item.Label);
+                string label = item.Value != null ? $"{name}   < {Loc.T(item.Value())} >" : name;
                 item.Text.text = sel ? $"- {label} -" : label;
                 item.Text.color = sel ? Lit : Idle;
             }

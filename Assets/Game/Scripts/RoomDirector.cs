@@ -60,7 +60,7 @@ namespace GJ.Game
         float _nextBeat;
         float _nextAmbient = 4f;
 
-        Text _attempt, _prompt, _message, _noteText, _controls, _holdText;
+        Text _attempt, _prompt, _message, _noteText, _controls, _holdText, _airLabel;
         Image _fade, _paper, _holdBar;
         Image[] _pips, _pipRings;
         Image _blood;
@@ -89,7 +89,7 @@ namespace GJ.Game
             GameSession.HasLighter = true;
             ShowLighter(Holding);
             if (handAnimator != null) handAnimator.LightUp(0.3f);
-            _controls.text = FreeAir ? "[E] use   [F] lighter" : "[E] use   [F] lighter   [R] restart\n" + LetGoHint;
+            _controls.text = Loc.T(FreeAir ? "[E] use   [F] lighter" : "[E] use   [F] lighter   [R] restart\n" + LetGoHint);
             _controlsTime = 6f;
         }
 
@@ -138,6 +138,7 @@ namespace GJ.Game
             puzzle.Solved += door.Open;
             puzzle.Message += text => { if (_phase == Phase.Alive) Flash(text); };
             BuildHud();
+            Loc.Changed += OnLanguage;
             BuildAudio();
             Time.timeScale = 1f;
 
@@ -155,7 +156,7 @@ namespace GJ.Game
             else
             {
                 ShowLighter(false);
-                _controls.text = FreeAir ? "[E] use" : "[E] use   [R] restart\n" + LetGoHint;
+                _controls.text = Loc.T(FreeAir ? "[E] use" : "[E] use   [R] restart\n" + LetGoHint);
             }
             GameSession.BeginAttempt(SceneManager.GetActiveScene().name);
             LayOutBodies();
@@ -169,21 +170,35 @@ namespace GJ.Game
             bool gun = revolver != null && revolver.Owned;
             if (FreeAir)
             {
-                if (Holding) _controls.text = "[E] use   [F] lighter" + (gun ? "   [Q] revolver" : "");
+                if (Holding) _controls.text = Loc.T(gun ? "[E] use   [F] lighter   [Q] revolver" : "[E] use   [F] lighter");
                 Flash(startMessage, 5f);
                 return;
             }
-            if (gun) _controls.text = "[E] use   [F] lighter   [Q] revolver   [R] restart\n" + LetGoHint;
+            if (gun) _controls.text = Loc.T("[E] use   [F] lighter   [Q] revolver   [R] restart\n" + LetGoHint);
             string lastFail = GameSession.LastFail;
             GameSession.LastFail = null;
             int attempt = GameSession.Attempt;
-            _attempt.text = attempt > 1 ? "ATTEMPT " + attempt : "";
-            if (attempt > 1 && !string.IsNullOrEmpty(lastFail)) Flash($"ATTEMPT {attempt}\n<size=10>last time: {lastFail}</size>", 4.5f);
-            else if (attempt > 1) Flash("ATTEMPT " + attempt, 2.5f);
+            _attempt.text = attempt > 1 ? Loc.F("ATTEMPT {0}", attempt) : "";
+            if (attempt > 1 && !string.IsNullOrEmpty(lastFail))
+                Flash(Loc.F("ATTEMPT {0}", attempt) + "\n<size=10>" + Loc.F("last time: {0}", Loc.T(lastFail)) + "</size>", 4.5f);
+            else if (attempt > 1) Flash(Loc.F("ATTEMPT {0}", attempt), 2.5f);
             else Flash(startMessage, 4f);
         }
 
-        void OnDestroy() => Time.timeScale = 1f;
+        void OnDestroy()
+        {
+            Time.timeScale = 1f;
+            Loc.Changed -= OnLanguage;
+        }
+
+        // A language picked from the pause menu: the fixed bits of the HUD follow; prompts redraw every frame anyway.
+        void OnLanguage()
+        {
+            _airLabel.text = Loc.T("AIR");
+            LayoutPips();
+            _holdText.text = Loc.T("letting go...");
+            _controls.text = "";
+        }
 
         // A blow that knocks the breath being held out of you (the graveyard fight): a red flash and a gasp, and the
         // last one goes like any other death.
@@ -210,7 +225,7 @@ namespace GJ.Game
             hand.gameObject.SetActive(true);
             if (lighterLight != null) lighterLight.enabled = false;
             if (handAnimator != null) handAnimator.MakeBare();
-            _controls.text = "[E] use   [LMB] punch   [Q] revolver";
+            _controls.text = Loc.T("[E] use   [LMB] punch   [Q] revolver");
         }
 
         bool _bare;
@@ -325,9 +340,9 @@ namespace GJ.Game
             var option = puzzle.Look(head.position, head.forward, lit);
             bool canAct = option.HasValue && option.Value.act != null;
             var note = canAct ? null : NoteInView();
-            if (canAct) _prompt.text = option.Value.prompt;
-            else if (note != null) _prompt.text = "[E] read";
-            else _prompt.text = option.HasValue ? option.Value.prompt : "";
+            if (canAct) _prompt.text = Loc.T(option.Value.prompt);
+            else if (note != null) _prompt.text = Loc.T("[E] read");
+            else _prompt.text = option.HasValue ? Loc.T(option.Value.prompt) : "";
 
             if (kb != null && kb.eKey.wasPressedThisFrame)
             {
@@ -432,9 +447,9 @@ namespace GJ.Game
         void OpenNote(ReadableNote note)
         {
             _reading = note;
-            _noteText.text = note.text;
+            _noteText.text = Loc.T(note.text);
             _paper.gameObject.SetActive(true);
-            _prompt.text = "[E] put it down";
+            _prompt.text = Loc.T("[E] put it down");
             FirstPersonController.Frozen = true;
             if (paperClip != null) _heart.PlayOneShot(paperClip, 0.8f);
         }
@@ -476,7 +491,7 @@ namespace GJ.Game
             bool space = kb != null && kb.spaceKey.isPressed;
             if (!space) _spaceLatched = false;
             Time.timeScale = working && space && !_spaceLatched ? fastForward : 1f;
-            _prompt.text = working && !door.IsOpening ? "hold [SPACE] to wait" : "";
+            _prompt.text = working && !door.IsOpening ? Loc.T("hold [SPACE] to wait") : "";
 
             if (door.IsOpen) { StartCoroutine(Revive()); return; }
 
@@ -670,7 +685,7 @@ namespace GJ.Game
         void Say(string text)
         {
             if (_flash != null) { StopCoroutine(_flash); _flash = null; }
-            _message.text = text;
+            _message.text = Loc.T(text);
             var c = _message.color;
             c.a = 1f;
             _message.color = c;
@@ -685,7 +700,7 @@ namespace GJ.Game
 
         IEnumerator FlashRoutine(string text, float seconds)
         {
-            _message.text = text;
+            _message.text = Loc.T(text);
             // Capped per frame: the room's first frame carries the whole scene load and would eat the message at once.
             for (float t = 0f; t < seconds; t += Mathf.Min(Time.unscaledDeltaTime, 0.05f))
             {
@@ -747,14 +762,18 @@ namespace GJ.Game
             _noteText.rectTransform.sizeDelta = new Vector2(200, 150);
             _noteText.horizontalOverflow = HorizontalWrapMode.Wrap;
             _noteText.lineSpacing = 1.1f;
+            // Translations run longer than the English: shrink a long note to fit the paper rather than spill off it.
+            _noteText.resizeTextForBestFit = true;
+            _noteText.resizeTextMinSize = 7;
+            _noteText.resizeTextMaxSize = 11;
             _paper.gameObject.SetActive(false);
 
             // The breaths, as a row of little lungs: the pair being held empties from the top down, spent ones are left
             // as faint outlines.
-            var airLabel = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(10, -9));
-            airLabel.text = "AIR";
-            airLabel.color = new Color(0.7f, 0.65f, 0.58f, 0.85f);
-            airLabel.gameObject.SetActive(!FreeAir);
+            _airLabel = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(10, -9));
+            _airLabel.text = Loc.T("AIR");
+            _airLabel.color = new Color(0.7f, 0.65f, 0.58f, 0.85f);
+            _airLabel.gameObject.SetActive(!FreeAir);
             var lungs = LungsSprite(false);
             var outline = LungsSprite(true);
             _pips = new Image[breaths];
@@ -768,11 +787,12 @@ namespace GJ.Game
                 _pips[i].fillMethod = Image.FillMethod.Vertical;
                 _pips[i].fillOrigin = (int)Image.OriginVertical.Bottom;
             }
+            LayoutPips();
 
             _attempt = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(11, -24));
             _attempt.color = new Color(0.7f, 0.65f, 0.58f, 0.85f);
             _controls = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(-10, -8));
-            _controls.text = "[E] use   [F] lighter   [R] restart\n" + LetGoHint;
+            _controls.text = Loc.T("[E] use   [F] lighter   [R] restart\n" + LetGoHint);
             _controls.lineSpacing = 1.2f;
             _prompt = MakeText(canvasGo.transform, font, 11, TextAnchor.LowerCenter, new Vector2(0.5f, 0), new Vector2(0, 18));
             _message = MakeText(canvasGo.transform, font, 14, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero);
@@ -780,7 +800,7 @@ namespace GJ.Game
             // Letting go: a short bar over the prompt fills while Space is held.
             var white = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 100f);
             _holdText = MakeText(canvasGo.transform, font, 9, TextAnchor.LowerCenter, new Vector2(0.5f, 0), new Vector2(0, 42));
-            _holdText.text = "letting go...";
+            _holdText.text = Loc.T("letting go...");
             var holdBack = HudImage(_holdText.transform, "HoldBack", white, new Vector2(0.5f, 0), new Vector2(0, -6), new Vector2(64, 3));
             holdBack.color = new Color(0f, 0f, 0f, 0.6f);
             _holdBar = HudImage(_holdText.transform, "HoldBar", white, new Vector2(0.5f, 0), new Vector2(0, -6), new Vector2(64, 3));
@@ -788,6 +808,18 @@ namespace GJ.Game
             _holdBar.fillMethod = Image.FillMethod.Horizontal;
             _holdBar.color = new Color(0.95f, 0.9f, 0.8f, 0.9f);
             _holdText.gameObject.SetActive(false);
+        }
+
+        // The lungs start just past the AIR label, which is longer in some languages.
+        void LayoutPips()
+        {
+            float x0 = Mathf.Max(30f, 10f + _airLabel.preferredWidth + 5f);
+            for (int i = 0; i < breaths; i++)
+            {
+                var at = new Vector2(x0 + i * 17, -7);
+                _pipRings[i].rectTransform.anchoredPosition = at;
+                _pips[i].rectTransform.anchoredPosition = at;
+            }
         }
 
         const string LetGoHint = "hold [SPACE] to let go";

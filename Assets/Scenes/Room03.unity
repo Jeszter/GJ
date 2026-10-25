@@ -35554,20 +35554,23 @@ MonoBehaviour:
   text: 'DAY 7
 
 
-    The armory. The bolt on the door
+    The armory. A hopper of sand holds
 
-    is held by a hopper of
-    sand up
+    the bolt. Empty it and
+    the iron on
 
-    by the ceiling. Empty it and the
+    the other side pulls it back.
 
-    iron on the other side pulls
-    the
-
-    bolt back.
+    Sand runs slower than I breathe.
 
 
-    Sand runs slower than I breathe.'
+    At
+    night something walks over the
+
+    ceiling, up where the chapel is.
+
+    Slow
+    steps. Like it''s waiting.'
 --- !u!23 &1959366780
 MeshRenderer:
   m_ObjectHideFlags: 0

@@ -25,12 +25,13 @@ namespace GJ.PSX.EditorTools
 
         const string NoteDay7 =
             "DAY 7\n\n" +
-            "The armory. The bolt on the door\n" +
-            "is held by a hopper of sand up\n" +
-            "by the ceiling. Empty it and the\n" +
-            "iron on the other side pulls the\n" +
-            "bolt back.\n\n" +
-            "Sand runs slower than I breathe.";
+            "The armory. A hopper of sand holds\n" +
+            "the bolt. Empty it and the iron on\n" +
+            "the other side pulls it back.\n" +
+            "Sand runs slower than I breathe.\n\n" +
+            "At night something walks over the\n" +
+            "ceiling, up where the chapel is.\n" +
+            "Slow steps. Like it's waiting.";
 
         const string NoteHopper =
             "Two hoppers. Only one is on the\n" +

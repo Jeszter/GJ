@@ -138,7 +138,7 @@ namespace GJ.Game
             GameSession.GunInGraveyard = false;
             if (takeClip != null) AudioSource.PlayClipAtPoint(takeClip, lostGunPoint.position, 0.8f);
             Director.Gun?.Give(Mathf.Max(GameSession.Rounds, roundsAtLeast));
-            Say("your revolver. " + GameSession.Rounds + " rounds\n<size=10>[LMB] shoot it</size>");
+            Say(Loc.F("your revolver. {0} rounds", GameSession.Rounds) + "\n<size=10>" + Loc.T("[LMB] shoot it") + "</size>");
         }
 
         void Update()
@@ -177,7 +177,7 @@ namespace GJ.Game
         void Won()
         {
             _won = true;
-            Say("it doesn't get up again.\nthe gate stands open");
+            Say("it doesn't get up again.\nunder the hood: your own face.\nthe gate stands open");
             RaiseSolved();
         }
     }

@@ -122,7 +122,7 @@ namespace GJ.Game
             _dot.enabled = Owned && Drawn && _raise > 0.95f && _head <= 0f;
             bool canTurn = Owned && Drawn && canAimAtSelf != null && canAimAtSelf();
             if (!canTurn) AtHead = false;
-            _hint.text = !canTurn ? "" : AtHead ? "[LMB] pull the trigger   [X] lower it" : "[X] to your head";
+            _hint.text = !canTurn ? "" : Loc.T(AtHead ? "[LMB] pull the trigger   [X] lower it" : "[X] to your head");
 
             // Not while dead or in a menu (the lighter hand is switched off then too).
             if (!Owned || FirstPersonController.Frozen || (lighterHand != null && !lighterHand.enabled)) return;

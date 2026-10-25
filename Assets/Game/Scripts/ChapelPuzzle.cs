@@ -42,7 +42,7 @@ namespace GJ.Game
         public override string[] SelfShotEnding => new[]
         {
             "SECTOR 4  -  YOU STAYED",
-            "the stairs to the surface went on without you.\nthank you for playing."
+            "the robe fits. you wait past the door\nfor the next one to come down.\nthank you for playing."
         };
 
         void Awake()

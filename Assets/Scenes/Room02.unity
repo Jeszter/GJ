@@ -55552,21 +55552,23 @@ MonoBehaviour:
   text: 'DAY 5
 
 
-    The pump room. The old cistern
+    The pump room. The door bolt hangs
 
-    still holds water.
+    on a chain over to a
+    bucket. Fill
 
+    the bucket, the bolt comes up.
 
-    The
-    door bolt hangs on a chain
-
-    over to a bucket. Fill the bucket,
-
-    the bolt
-    comes up.
+    It never fills in one breath.
 
 
-    It never fills in one breath.'
+    There
+    was a body by the bucket
+
+    when I came in. Same boots as mine.
+
+    I didn''t
+    look at the face.'
 --- !u!23 &1831195642
 MeshRenderer:
   m_ObjectHideFlags: 0

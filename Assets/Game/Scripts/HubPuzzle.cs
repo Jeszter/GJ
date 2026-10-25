@@ -70,7 +70,7 @@ namespace GJ.Game
                 RaiseSolved();
             }
             else if (justDone != null)
-                Director.startMessage = $"{justDone.title}  -  DONE\n<size=10>{done} of {total} rooms</size>";
+                Director.startMessage = Loc.F("{0}  -  DONE", Loc.T(justDone.title)) + "\n<size=10>" + Loc.F("{0} of {1} rooms", done, total) + "</size>";
         }
 
         void StandAt(Transform spot)
@@ -96,11 +96,12 @@ namespace GJ.Game
                 if (aim > bestAim) { bestAim = aim; best = d; }
             }
             if (best == null) return null;
-            if (Done(best)) return new Option { prompt = best.title + "  -  done" };
-            if (!Built(best)) return new Option { prompt = best.title + "  -  sealed" };
-            if (!GameSession.HasLighter) return new Option { prompt = best.title + "  -  pitch dark in there. find your lighter first" };
+            string title = Loc.T(best.title);
+            if (Done(best)) return new Option { prompt = Loc.F("{0}  -  done", title) };
+            if (!Built(best)) return new Option { prompt = Loc.F("{0}  -  sealed", title) };
+            if (!GameSession.HasLighter) return new Option { prompt = Loc.F("{0}  -  pitch dark in there. find your lighter first", title) };
             var door = best;
-            return new Option { prompt = "[E] go in:  " + door.title, act = () => Enter(door), gesture = Gesture.Push };
+            return new Option { prompt = Loc.F("[E] go in:  {0}", title), act = () => Enter(door), gesture = Gesture.Push };
         }
 
         void PickUpLighter()

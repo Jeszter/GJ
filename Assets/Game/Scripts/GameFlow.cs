@@ -41,7 +41,7 @@ namespace GJ.Game
             "1987.",
             "Beneath an old coal mine lies a bunker\nthat no map remembers.\n\nSector 4.",
             "You were sent down to clear\nthe last of the old charges.\n\nThe vault door sealed behind you.",
-            "Four breaths of air.\nA lighter.\nA trail of powder.",
+            "Four sealed rooms.\nA few breaths of air in each.\nA lighter.",
             "In Sector 4, dying is not the end.\n\nDying for nothing is."
         };
 
@@ -78,9 +78,13 @@ namespace GJ.Game
 
         public bool IsLastRoom => string.IsNullOrEmpty(nextScene) || !Application.CanStreamedLevelBeLoaded(nextScene);
 
+        const string Tagline = "death is part of the solution";
+        const string SkipHint = "[ESC] skip";
+
         void Awake()
         {
             GameSettings.Load();
+            Loc.Load();
             _headRest = head.localPosition;
             _headRestRot = head.localRotation;
         }
@@ -88,6 +92,7 @@ namespace GJ.Game
         void Start()
         {
             BuildUi();
+            Loc.Changed += OnLanguage;
             GameSettings.Apply();
 
             if (humClip != null)
@@ -220,7 +225,7 @@ namespace GJ.Game
                 for (int d = 0; d < _dots.Length; d++)
                     _dots[d].color = d == i ? new Color(0.95f, 0.8f, 0.5f) : d < i ? new Color(0.5f, 0.42f, 0.32f) : new Color(0.22f, 0.2f, 0.18f);
                 bool skipAll = false;
-                yield return Type(Story[i], s => skipAll = s);
+                yield return Type(Loc.T(Story[i]), s => skipAll = s);
                 if (skipAll) break;
             }
             _artPanel.gameObject.SetActive(false);
@@ -264,7 +269,7 @@ namespace GJ.Game
             {
                 if (SkipStory()) { skipAll(true); yield break; }
                 if (Advance() || t > 3.5f) break;
-                _hint.text = Mathf.Repeat(t, 1.2f) < 0.8f ? "[ENTER] next" : "";
+                _hint.text = Mathf.Repeat(t, 1.2f) < 0.8f ? Loc.T("[ENTER] next") : "";
                 yield return null;
             }
         }
@@ -327,7 +332,7 @@ namespace GJ.Game
             Cursor.visible = true;
             _black.color = new Color(0, 0, 0, 0.6f);
             _title.gameObject.SetActive(true);
-            _title.text = "PAUSED";
+            _title.text = Loc.T("PAUSED");
             hand.SetActive(false);
             Open(_pauseMenu);
         }
@@ -360,7 +365,7 @@ namespace GJ.Game
                 LoadScene(nextScene);
                 return;
             }
-            ShowEnding("SECTOR 4  -  YOU GOT OUT", "the last door is open.\nthank you for playing.");
+            ShowEnding("SECTOR 4  -  YOU GOT OUT", "the notes were in your handwriting.\nM. was you, every time you kept going.\nthank you for playing.");
         }
 
         // The last card, with the run's numbers: out through the chapel, or not.
@@ -371,9 +376,9 @@ namespace GJ.Game
             controller.enabled = false;
             _black.color = Color.black;
             int s = Mathf.FloorToInt(GameSession.Time);
-            _endText.text = title + "\n\n" +
-                            $"deaths     {GameSession.Deaths}\n" +
-                            $"time       {s / 60:00}:{s % 60:00}\n\n" + line;
+            _endText.text = Loc.T(title) + "\n\n" +
+                            Loc.F("deaths     {0}", GameSession.Deaths) + "\n" +
+                            Loc.F("time       {0:00}:{1:00}", s / 60, s % 60) + "\n\n" + Loc.T(line);
             _endText.gameObject.SetActive(true);
             Snow(0.8f);
             Open(_endMenu);
@@ -433,7 +438,7 @@ namespace GJ.Game
         {
             _settingsReturn = returnTo;
             _title.gameObject.SetActive(true);
-            _title.text = "SETTINGS";
+            _title.text = Loc.T("SETTINGS");
             _tagline.gameObject.SetActive(false);
             Open(_settingsMenu);
         }
@@ -442,7 +447,7 @@ namespace GJ.Game
         {
             GameSettings.Save();
             bool paused = _settingsReturn == State.Paused;
-            _title.text = paused ? "PAUSED" : "ONE MORE TIME";
+            _title.text = paused ? Loc.T("PAUSED") : "ONE MORE TIME";
             _tagline.gameObject.SetActive(!paused);
             Open(paused ? _pauseMenu : _titleMenu);
         }
@@ -453,8 +458,18 @@ namespace GJ.Game
             _activeMenu = menu;
         }
 
+        // Picked a language in the settings: the words already on screen follow at once.
+        void OnLanguage()
+        {
+            _tagline.text = Loc.T(Tagline);
+            _skip.text = Loc.T(SkipHint);
+            if (_activeMenu == _settingsMenu) _title.text = Loc.T("SETTINGS");
+            _activeMenu?.Refresh();
+        }
+
         void OnDestroy()
         {
+            Loc.Changed -= OnLanguage;
             Shader.SetGlobalFloat(CrtId, 0f);
             Shader.SetGlobalFloat(TvOffId, 0f);
             Shader.SetGlobalFloat(StaticId, 0f);
@@ -663,12 +678,12 @@ namespace GJ.Game
             _black.color = Color.black;
 
             _title = Label(root, "ONE MORE TIME", 30, new Vector2(0, 62), new Color(0.95f, 0.88f, 0.75f));
-            _tagline = Label(root, "death is part of the solution", 10, new Vector2(0, 38), new Color(0.75f, 0.35f, 0.25f));
+            _tagline = Label(root, Loc.T(Tagline), 10, new Vector2(0, 38), new Color(0.75f, 0.35f, 0.25f));
             BuildStoryPanel(root);
             _story = Label(root, "", 12, new Vector2(0, -50), new Color(0.9f, 0.86f, 0.78f));
             _story.lineSpacing = 1.1f;
             _hint = Label(root, "", 9, new Vector2(140, -96), new Color(0.6f, 0.55f, 0.5f));
-            _skip = Label(root, "[ESC] skip", 9, new Vector2(-140, -96), new Color(0.5f, 0.46f, 0.42f));
+            _skip = Label(root, Loc.T(SkipHint), 9, new Vector2(-140, -96), new Color(0.5f, 0.46f, 0.42f));
             _skip.gameObject.SetActive(false);
             _endText = Label(root, "", 12, new Vector2(0, 40), new Color(0.92f, 0.88f, 0.8f));
             _endText.gameObject.SetActive(false);
@@ -691,6 +706,7 @@ namespace GJ.Game
             _settingsMenu.AddOption("VOLUME", () => GameSettings.Volume.ToString(), d => { GameSettings.Volume = Mathf.Clamp(GameSettings.Volume + d, 0, 10); GameSettings.Apply(); });
             _settingsMenu.AddOption("PIXELS", () => GameSettings.PixelNames[GameSettings.Pixels], d => { GameSettings.Pixels = (GameSettings.Pixels + d + GameSettings.PixelRows.Length) % GameSettings.PixelRows.Length; GameSettings.Apply(); });
             _settingsMenu.AddOption("FULLSCREEN", () => GameSettings.Fullscreen ? "ON" : "OFF", d => { GameSettings.Fullscreen = !GameSettings.Fullscreen; GameSettings.Apply(); });
+            _settingsMenu.AddOption("LANGUAGE", () => Loc.Name, d => Loc.Set(Loc.Current + d));
             _settingsMenu.Add("BACK", CloseSettings);
 
             _endMenu = new PsxMenu(root, cam, _font, new Vector2(0, -62), 12, 17, _ui, moveClip, pickClip);

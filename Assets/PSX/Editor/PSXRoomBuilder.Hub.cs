@@ -15,6 +15,16 @@ namespace GJ.PSX.EditorTools
         // Stencil over each door: material suffix and text.
         static readonly (string, string)[] HubSigns = { ("1", "4-1 POWDER"), ("2", "4-2 PUMPS"), ("3", "4-3 ARMORY"), ("4", "4-4 BOILER") };
 
+        // Pinned by the lift for whoever comes down next: the first hint that the notes are your own.
+        const string NoteHub =
+            "You're back.\n\n" +
+            "The lighter fell out of your hand\n" +
+            "on the way down. It always does.\n\n" +
+            "Four rooms. Every one of them\n" +
+            "will kill you. Let it.\n" +
+            "Just don't give up.\n\n" +
+            "                        - M.";
+
         [MenuItem("GJ/Build Hub")]
         public static void BuildHubOnly()
         {
@@ -56,6 +66,8 @@ namespace GJ.PSX.EditorTools
             Plate("Sign_ExitBeyond", "SignExit", new Vector3(DoorHalfWidth - 0.012f, 2.0f, RoomMax.z + 2.2f), 0.5f, 0.17f, Vector3.left, props);
             Helmet(new Vector3(-1.2f, 0f, 1.2f), 40f, props);
             Extinguisher(new Vector3(RoomMax.x, 0.5f, 1.4f), -90f, props);
+            var note = Plate("Note_Hub", "NoteScrap", new Vector3(RoomMax.x - 0.012f, 1.5f, 2.0f), 0.22f, 0.28f, Vector3.left, props, 4f);
+            note.AddComponent<Game.ReadableNote>().text = NoteHub;
 
             // The lighter, dropped on the way down: a shut Zippo lying on its back near the helmet, a glint on its
             // chrome so it catches the eye under the first light.

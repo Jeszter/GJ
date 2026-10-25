@@ -20,12 +20,13 @@ namespace GJ.PSX.EditorTools
 
         const string NoteDay5 =
             "DAY 5\n\n" +
-            "The pump room. The old cistern\n" +
-            "still holds water.\n\n" +
-            "The door bolt hangs on a chain\n" +
-            "over to a bucket. Fill the bucket,\n" +
-            "the bolt comes up.\n\n" +
-            "It never fills in one breath.";
+            "The pump room. The door bolt hangs\n" +
+            "on a chain over to a bucket. Fill\n" +
+            "the bucket, the bolt comes up.\n" +
+            "It never fills in one breath.\n\n" +
+            "There was a body by the bucket\n" +
+            "when I came in. Same boots as mine.\n" +
+            "I didn't look at the face.";
 
         const string NoteChain =
             "The chain slipped off the bolt\n" +

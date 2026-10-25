@@ -13,12 +13,13 @@ namespace GJ.PSX.EditorTools
         const string ChapelPath = "Assets/Scenes/Chapel.unity";
 
         const string NoteChapel =
-            "They built this chapel when the\n" +
-            "mine still had men in it.\n\n" +
-            "Four rooms under it, and every\n" +
-            "one of them took me more than once.\n\n" +
+            "The ones who gave up down here\n" +
+            "never left. They put on the robes\n" +
+            "and wait past that door for the\n" +
+            "next one to give up too.\n\n" +
             "The way up is chained. A round\n" +
-            "would do. Or the other thing.\n\n" +
+            "would do. Or the other thing.\n" +
+            "Don't. That's how they began.\n\n" +
             "                        - M.";
 
         [MenuItem("GJ/Build Chapel")]
