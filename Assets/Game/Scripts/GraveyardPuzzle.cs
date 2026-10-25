@@ -14,11 +14,13 @@ namespace GJ.Game
         public Transform lostGunPoint;
         public float punchRange = 1.7f;
         public int roundsAtLeast = 3;        // picked up with at least this many: the fight can't be lost to an empty cylinder
-        public AudioClip punchClip, swishClip, takeClip, drawClip;
+        public AudioClip punchClip, swishClip, takeClip, drawClip, kickClip;
+        public Transform kickLeg;            // a boot and shin under the view, swung up into it to kick
+        public GraveyardEnding ending;       // out through the gate: the end of the run
         public Color dawnFog = new Color(0.32f, 0.3f, 0.36f), dawnAmbient = new Color(0.42f, 0.38f, 0.42f);
 
         bool _won;
-        float _nextPunch, _dawn;
+        float _nextPunch, _nextKick, _dawn;
         Color _fog, _ambient;
 
         // The air down here is the only air there is: it doesn't run out, it gets knocked out of you.
@@ -43,6 +45,9 @@ namespace GJ.Game
         public override void Arrived(string cameFrom)
         {
             Director.startMessage = "";
+            // The way out of here is the ending, not the director's exit.
+            Director.exitZ = float.MaxValue;
+            if (kickLeg != null) kickLeg.gameObject.SetActive(false);
             // However you got here, the revolver is out in the grass, and the hand is bare: nothing in it but a fist.
             if (Director.Gun != null && Director.Gun.Owned) Director.Gun.TakeAway();
             GameSession.GunInGraveyard = true;
@@ -105,7 +110,7 @@ namespace GJ.Game
                 yield return null;
             }
             figure.Show(figure.idle);
-            Say("get to the revolver\n<size=10>fists only hold it off. [LMB] punch</size>");
+            Say("get to the revolver\n<size=10>fists only hold it off. [LMB] punch   [RMB] kick</size>");
 
             // Hand the view back looking where the head ended up.
             var e = head.rotation.eulerAngles;
@@ -147,8 +152,15 @@ namespace GJ.Game
             {
                 // Grey light coming up over the wall.
                 _dawn = Mathf.MoveTowards(_dawn, 1f, Time.deltaTime / 5f);
-                RenderSettings.fogColor = Color.Lerp(_fog, dawnFog, _dawn);
-                RenderSettings.ambientLight = Color.Lerp(_ambient, dawnAmbient, _dawn);
+                if (ending == null || !ending.LightsOwned)
+                {
+                    RenderSettings.fogColor = Color.Lerp(_fog, dawnFog, _dawn);
+                    RenderSettings.ambientLight = Color.Lerp(_ambient, dawnAmbient, _dawn);
+                }
+                // Out through the gate and the legs give.
+                if (ending != null && !ending.Running && Director != null && Director.Alive
+                    && Director.Controller.transform.position.z > Director.door.transform.position.z + 1.2f)
+                    ending.Run(Director, Say);
                 return;
             }
             if (Director == null || !Director.Alive || FirstPersonPaused()) return;
@@ -157,19 +169,85 @@ namespace GJ.Game
             var gun = Director.Gun;
             var mouse = Mouse.current;
             bool armed = gun != null && gun.Drawn;
-            if (!armed && mouse != null && mouse.leftButton.wasPressedThisFrame && Time.time >= _nextPunch && Cursor.lockState == CursorLockMode.Locked)
+            bool locked = Cursor.lockState == CursorLockMode.Locked;
+            if (!armed && mouse != null && mouse.leftButton.wasPressedThisFrame && Time.time >= _nextPunch && locked)
             {
-                _nextPunch = Time.time + 0.45f;
+                _nextPunch = Time.time + 0.5f;
                 Director.Jab();
-                Vector3 to = figure.transform.position + Vector3.up * 1.2f - Director.Head.position;
-                bool hit = !figure.Dead && to.magnitude < punchRange + 0.4f && Vector3.Angle(Director.Head.forward, to) < 35f;
-                if (hit)
-                {
-                    figure.Hit(0, Director.Controller.transform.position);
-                    if (punchClip != null) AudioSource.PlayClipAtPoint(punchClip, figure.transform.position + Vector3.up * 1.3f, 1f);
-                }
-                else if (swishClip != null) AudioSource.PlayClipAtPoint(swishClip, Director.Head.position, 0.4f);
+                StartCoroutine(Land(HandAnimator.PunchLands, punchRange, 35f, false));
             }
+            // A kick: slower, but it throws the figure back a long step and breaks off its swing.
+            var kb = Keyboard.current;
+            bool kick = (mouse != null && mouse.rightButton.wasPressedThisFrame) || (kb != null && kb.fKey.wasPressedThisFrame);
+            if (kick && kickLeg != null && Time.time >= _nextKick && Time.time >= _nextPunch - 0.3f && locked)
+            {
+                _nextKick = Time.time + 1.1f;
+                _nextPunch = Time.time + 0.6f;
+                StartCoroutine(Kick());
+                StartCoroutine(Land(0.16f, punchRange + 0.3f, 45f, true));
+            }
+        }
+
+        // The blow lands a beat after it is thrown, when the fist or the boot is all the way out: a thud, a moment
+        // where everything stops, a jolt through the view.
+        System.Collections.IEnumerator Land(float after, float range, float angle, bool kick)
+        {
+            yield return new WaitForSeconds(after);
+            if (Director == null || !Director.Alive) yield break;
+            Vector3 to = figure.transform.position + Vector3.up * 1.2f - Director.Head.position;
+            bool hit = !figure.Dead && to.magnitude < range + 0.4f && Vector3.Angle(Director.Head.forward, to) < angle;
+            if (!hit)
+            {
+                if (swishClip != null) AudioSource.PlayClipAtPoint(swishClip, Director.Head.position, 0.4f);
+                yield break;
+            }
+            if (kick) figure.Kick(Director.Controller.transform.position);
+            else figure.Hit(0, Director.Controller.transform.position);
+            var clip = kick && kickClip != null ? kickClip : punchClip;
+            if (clip != null) AudioSource.PlayClipAtPoint(clip, figure.transform.position + Vector3.up * 1.3f, 1f);
+            Director.ScreenFlash(new Color(1f, 0.95f, 0.85f, kick ? 0.22f : 0.14f), 0.12f);
+            Time.timeScale = 0.05f;
+            yield return new WaitForSecondsRealtime(kick ? 0.09f : 0.06f);
+            Time.timeScale = 1f;
+            var head = Director.Head;
+            Quaternion rest = head.localRotation;
+            for (float t = 0f; t < 0.12f; t += Time.deltaTime)
+            {
+                head.localRotation = rest * Quaternion.Euler(Random.Range(-1.5f, 1.5f) * (1f - t / 0.12f), Random.Range(-1.5f, 1.5f) * (1f - t / 0.12f), 0f);
+                yield return null;
+            }
+            head.localRotation = rest;
+        }
+
+        // The boot comes up from below into the view, drives out, and drops back.
+        System.Collections.IEnumerator Kick()
+        {
+            var leg = kickLeg;
+            var fist = Director.handAnimator;
+            if (fist != null) fist.Lowered = true;
+            leg.gameObject.SetActive(true);
+            Vector3 low = new Vector3(0.12f, -1.1f, 0.1f), high = new Vector3(0.1f, -0.3f, 0.7f);
+            Quaternion lowR = Quaternion.Euler(10f, -6f, 0f), highR = Quaternion.Euler(-65f, -8f, 0f);   // the sole at it
+            for (float t = 0f; t < 0.16f; t += Time.deltaTime)
+            {
+                float k = t / 0.16f;
+                k = 1f - (1f - k) * (1f - k);
+                leg.localPosition = Vector3.Lerp(low, high, k);
+                leg.localRotation = Quaternion.Slerp(lowR, highR, k);
+                yield return null;
+            }
+            leg.localPosition = high;
+            leg.localRotation = highR;
+            yield return new WaitForSeconds(0.1f);
+            for (float t = 0f; t < 0.3f; t += Time.deltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / 0.3f);
+                leg.localPosition = Vector3.Lerp(high, low, k);
+                leg.localRotation = Quaternion.Slerp(highR, lowR, k);
+                yield return null;
+            }
+            leg.gameObject.SetActive(false);
+            if (fist != null && (Director.Gun == null || !Director.Gun.Drawn)) fist.Lowered = false;
         }
 
         static bool FirstPersonPaused() => GJ.PSX.FirstPersonController.Frozen;

@@ -93,19 +93,25 @@ namespace GJ.PSX.EditorTools
 
         // ---------------------------------------------------------------- the revolver
 
-        // A revolver modelled at true size along +Z (barrel forward), grip down; the cylinder and hammer are separate
-        // so they can move. Used both in the hand and lying about; in the hand ("held") it is drawn in lighter steel
-        // with the same warm glow as the skin holding it, or in a dark room it is a black hole in a lit fist.
+        // A snub-nosed revolver modelled at true size along +Z (barrel forward), grip down: a two-inch barrel with a
+        // shroud under it, a fat cylinder, a rubber grip. The cylinder and hammer are separate so they can move. Used
+        // both in the hand and lying about; in the hand ("held") it is drawn in lighter steel with the same warm glow
+        // as the skin holding it, or in a dark room it is a black hole in a lit fist.
         static (Transform cylinder, Transform hammer, Transform muzzle) RevolverModel(Transform parent, bool held = false)
         {
-            string metal = held ? "HeldGunmetal" : "Gunmetal", wood = held ? "HeldGripWood" : "GripWood", brass = held ? "HeldBrass" : "Helmet";
+            string metal = held ? "HeldGunmetal" : "Gunmetal", rubber = held ? "HeldRubberGrip" : "RubberGrip", brass = held ? "HeldBrass" : "Helmet";
             var steel = new MeshBuilder();
-            steel.Tube(new Vector3(0, 0.046f, 0.022f), new Vector3(0, 0.046f, 0.17f), 0.0085f, 0.0085f, 8, Vector3.up, 8f);
-            steel.Box(new Vector3(0, 0.057f, 0.095f), new Vector3(0.008f, 0.006f, 0.15f), 8f);           // rib
-            steel.Box(new Vector3(0, 0.064f, 0.162f), new Vector3(0.004f, 0.01f, 0.008f), 8f);           // front sight
-            steel.Box(new Vector3(0, 0.038f, 0.06f), new Vector3(0.012f, 0.012f, 0.08f), 8f);            // ejector housing
+            steel.Tube(new Vector3(0, 0.046f, 0.022f), new Vector3(0, 0.046f, 0.074f), 0.0095f, 0.0095f, 8, Vector3.up, 8f);
+            steel.Box(new Vector3(0, 0.057f, 0.048f), new Vector3(0.009f, 0.006f, 0.052f), 8f);          // rib
+            steel.Box(new Vector3(0, 0.063f, 0.068f), new Vector3(0.004f, 0.008f, 0.01f), 8f);           // front sight
+            steel.Box(new Vector3(0, 0.036f, 0.046f), new Vector3(0.014f, 0.015f, 0.052f), 8f);          // shroud under the barrel
             steel.Box(new Vector3(0, 0.038f, -0.005f), new Vector3(0.022f, 0.05f, 0.075f), 8f);          // frame
             steel.Box(new Vector3(0, 0.062f, -0.03f), new Vector3(0.018f, 0.012f, 0.03f), 8f);           // top strap
+            foreach (float s in new[] { -1f, 1f })
+                steel.Box(new Vector3(0.004f * s, 0.07f, -0.04f), new Vector3(0.003f, 0.005f, 0.006f), 8f); // rear sight notch
+            foreach (float s in new[] { -1f, 1f })
+                foreach (var at in new[] { new Vector3(0.0112f * s, 0.024f, -0.024f), new Vector3(0.0112f * s, 0.03f, 0.018f) })
+                    steel.Box(at, new Vector3(0.001f, 0.003f, 0.003f), 8f);                             // side plate screws
             // Trigger guard: a loop under the frame.
             Vector3 prev = new Vector3(0, 0.012f, 0.012f);
             for (int i = 1; i <= 6; i++)
@@ -115,11 +121,31 @@ namespace GJ.PSX.EditorTools
                 steel.Tube(prev, p, 0.0025f, 0.0025f, 4, Vector3.right, 8f);
                 prev = p;
             }
-            steel.Box(new Vector3(0, 0.0f, -0.005f), new Vector3(0.004f, 0.02f, 0.004f), 8f);            // trigger
+            // The trigger: a blade hanging from the frame and curling back, in four short pieces.
+            Vector3 blade = new Vector3(0, 0.013f, -0.001f);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = (i + 1) / 4f * 1.1f;
+                var next = new Vector3(0, 0.013f - Mathf.Sin(a) * 0.017f, -0.001f - (1f - Mathf.Cos(a)) * 0.011f);
+                steel.Limb(blade, next, 0.004f, 0.0045f, 0.004f, 0.003f, Vector3.right, 8f);
+                blade = next;
+            }
             Place("Frame", steel, metal, Vector3.zero, default, parent);
+            // The rubber grip, swelling toward the butt, with finger grooves down the front.
             var grip = new MeshBuilder();
             grip.Limb(new Vector3(0, 0.022f, -0.035f), new Vector3(0, -0.055f, -0.062f), 0.024f, 0.034f, 0.026f, 0.04f, Vector3.forward, 8f);
-            Place("Grip", grip, wood, Vector3.zero, default, parent);
+            for (int i = 0; i < 3; i++)
+            {
+                float k = (i + 0.5f) / 3f, y = Mathf.Lerp(0.012f, -0.046f, k), z = Mathf.Lerp(-0.035f, -0.062f, (0.022f - y) / 0.077f);
+                grip.Box(new Vector3(0, y, z + Mathf.Lerp(0.017f, 0.02f, k)), new Vector3(0.022f, 0.006f, 0.005f), 8f);
+            }
+            var gripGo = Place("Grip", grip, rubber, Vector3.zero, default, parent);
+            // In the hand the grip is slimmed by a quarter about its middle, so the fingers get right round it.
+            if (held)
+            {
+                gripGo.transform.localScale = new Vector3(HeldGripSlim, 1f, HeldGripSlim);
+                gripGo.transform.localPosition = new Vector3(0f, 0f, -0.048f * (1f - HeldGripSlim));
+            }
             var cyl = new GameObject("Cylinder").transform;
             cyl.SetParent(parent, false);
             cyl.localPosition = new Vector3(0, 0.044f, 0.004f);
@@ -135,16 +161,25 @@ namespace GJ.PSX.EditorTools
             Place("Rims", rims, brass, Vector3.zero, default, cyl);
             var hammer = new GameObject("Hammer").transform;
             hammer.SetParent(parent, false);
-            hammer.localPosition = new Vector3(0, 0.06f, -0.042f);
-            Block("Spur", metal, new Vector3(0, 0.006f, -0.004f), new Vector3(0.006f, 0.016f, 0.01f), new Vector3(-20, 0, 0), 8f, hammer);
+            // The hammer pivots low in the back of the frame: its body stands up behind the top strap and the spur
+            // bends back over the web of the hand, ridged on top for the thumb.
+            hammer.localPosition = new Vector3(0, 0.052f, -0.038f);
+            var hammerMb = new MeshBuilder();
+            hammerMb.Limb(new Vector3(0, 0f, 0f), new Vector3(0, 0.017f, -0.004f), 0.007f, 0.009f, 0.006f, 0.007f, Vector3.forward, 8f);
+            hammerMb.Limb(new Vector3(0, 0.016f, -0.003f), new Vector3(0, 0.021f, -0.015f), 0.006f, 0.006f, 0.008f, 0.004f, Vector3.up, 8f);
+            for (int i = 0; i < 3; i++)
+                hammerMb.Box(new Vector3(0, 0.0215f + i * 0.0003f, -0.007f - i * 0.003f), new Vector3(0.008f, 0.001f, 0.001f), 8f);
+            Place("Spur", hammerMb, metal, Vector3.zero, default, hammer);
             var muzzle = new GameObject("Muzzle").transform;
             muzzle.SetParent(parent, false);
-            muzzle.localPosition = new Vector3(0, 0.046f, 0.175f);
+            muzzle.localPosition = new Vector3(0, 0.046f, 0.079f);
             return (cyl, hammer, muzzle);
         }
 
         // The right arm holding the revolver low in view, with the flash and light at the muzzle, and the Revolver
         // component wired to the lighter hand.
+        const float HeldGripSlim = 0.75f;
+
         static Game.Revolver BuildRevolver(PlayerRig rig)
         {
             var root = new GameObject("Revolver").transform;
@@ -169,8 +204,46 @@ namespace GJ.PSX.EditorTools
             var arm = Arm(RevolverGrip, gun);
             var knuckle = new Vector3(0.029f, 0.018f, -0.034f);
             var rake = Quaternion.AngleAxis(40f, Vector3.right);
-            arm.root.localPosition = knuckle + rake * (arm.root.localPosition - knuckle) + new Vector3(0f, -0.024f, -0.008f);
+            // (and moved in and back, so the knuckles sit by the back of the right panel with the palm against it)
+            arm.root.localPosition = knuckle + rake * (arm.root.localPosition - knuckle) + new Vector3(-0.01f, -0.024f, -0.024f);
             arm.root.localRotation = rake * arm.root.localRotation;
+            // And the forearm swung down 50 degrees about the wrist, the hand left where it is on the grip: it runs off
+            // the bottom corner of the view instead of up past the cheek in a big lit wedge.
+            Transform wrist = null;
+            foreach (var t in arm.root.GetComponentsInChildren<Transform>()) if (t.name == "hand.R") wrist = t;
+            Vector3 wristAt = wrist.position;
+            Quaternion handTurn = wrist.rotation;
+            var drop = Quaternion.AngleAxis(-50f, gun.right);
+            arm.root.position = wristAt + drop * (arm.root.position - wristAt);
+            arm.root.rotation = drop * arm.root.rotation;
+            wrist.SetPositionAndRotation(wristAt, handTurn);
+            // The index finger off the grip: along the right of the frame, in through the guard, its pad on the
+            // trigger.
+            AimBone(arm.fingers[0], arm.fingers[1], gun.TransformPoint(new Vector3(0.012f, 0.004f, -0.01f)));
+            AimBone(arm.fingers[1], arm.fingers[2], gun.TransformPoint(new Vector3(0.002f, 0f, -0.002f)));
+            // The other three laid round the grip at their own height: the first joint forward along the right panel to
+            // the front corner, the second across the front strap, the tip back along the left panel.
+            const float gripHalfWidth = 0.012f * HeldGripSlim + 0.0065f, gripHalfDepth = 0.018f * HeldGripSlim + 0.0065f;
+            for (int f = 1; f < 4; f++)
+            {
+                Transform j1 = arm.fingers[f * 3], j2 = arm.fingers[f * 3 + 1], j3 = arm.fingers[f * 3 + 2];
+                float y = gun.InverseTransformPoint(j1.position).y;
+                float middle = HeldGripSlim * (-0.035f - (0.022f - y) * 0.35f) - 0.048f * (1f - HeldGripSlim);   // the grip's rake
+                AimBone(j1, j2, gun.TransformPoint(new Vector3(gripHalfWidth * 0.5f, y, middle + gripHalfDepth)));
+                AimBone(j2, j3, gun.TransformPoint(new Vector3(-gripHalfWidth, y, middle + gripHalfDepth * 0.6f)));
+                // The tip has no joint past it: turn it as if it ran on along the middle joint's line.
+                Vector3 along = (j3.position - j2.position).normalized;
+                Vector3 back = (gun.TransformPoint(new Vector3(-gripHalfWidth, y, middle - 0.012f)) - j3.position).normalized;
+                j3.rotation = Quaternion.FromToRotation(along, back) * j3.rotation;
+            }
+            // The thumb down the left of the grip from the web of the hand, its tip folded over the middle finger.
+            float midY = gun.InverseTransformPoint(arm.fingers[3].position).y;
+            float midZ = HeldGripSlim * (-0.035f - (0.022f - midY) * 0.35f) - 0.048f * (1f - HeldGripSlim);
+            AimBone(arm.thumb[0], arm.thumb[1], gun.TransformPoint(new Vector3(-gripHalfWidth * 0.8f, 0.012f, -0.05f)));
+            AimBone(arm.thumb[1], arm.thumb[2], gun.TransformPoint(new Vector3(-gripHalfWidth - 0.004f, midY + 0.004f, midZ + 0.004f)));
+            Vector3 thumbAlong = (arm.thumb[2].position - arm.thumb[1].position).normalized;
+            Vector3 thumbOn = (gun.TransformPoint(new Vector3(-gripHalfWidth - 0.006f, midY, midZ + gripHalfDepth)) - arm.thumb[2].position).normalized;
+            arm.thumb[2].rotation = Quaternion.FromToRotation(thumbAlong, thumbOn) * arm.thumb[2].rotation;
 
             var flashMb = new MeshBuilder();
             flashMb.Cross(new Vector3(0, -0.03f, 0), 0.07f, 0.07f);
@@ -201,6 +274,12 @@ namespace GJ.PSX.EditorTools
             r.clickClip = PSXSoundGenerator.Load("dry_click");
             r.drawClip = PSXSoundGenerator.Load("ratchet");
             return r;
+        }
+
+        // Turns a bone so the next joint along it lands on the line to a target point.
+        static void AimBone(Transform bone, Transform next, Vector3 target)
+        {
+            bone.rotation = Quaternion.FromToRotation(next.position - bone.position, target - bone.position) * bone.rotation;
         }
 
         // ---------------------------------------------------------------- the hoppers

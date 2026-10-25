@@ -54,6 +54,11 @@ namespace GJ.PSX.EditorTools
             flow.stage = BuildStoryStage();
 
             SetupRenderSettings();
+            // Behind the title the room is seen through the tube's scanlines and vignette and a dark veil: lit as it
+            // is for play it reads as black. Turn its lamps and the ambient up for the menu's copy only.
+            foreach (var l in copy.GetComponentsInChildren<Light>(true)) l.intensity *= 1.7f;
+            RenderSettings.ambientLight *= 2.2f;
+            RenderSettings.fogEndDistance *= 1.5f;
             EditorSceneManager.SaveScene(scene, MenuPath);
             Debug.Log("PSX main menu built: " + MenuPath);
         }

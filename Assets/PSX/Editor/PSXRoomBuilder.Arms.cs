@@ -55,7 +55,7 @@ namespace GJ.PSX.EditorTools
         static readonly ArmPose RevolverGrip = new ArmPose
         {
             along = new Vector3(-0.22f, 0.15f, 1f), back = Vector3.right, wrist = new Vector3(0f, -40f, 0f),
-            knuckle = new Vector3(0.029f, 0.018f, -0.034f), scale = 0.625f,
+            knuckle = new Vector3(0.029f, 0.018f, -0.034f), scale = 0.667f,   // x1.2 gun = 0.8, the lighter hand's size
             curl = new[] { new Vector3(20f, 40f, 20f), new Vector3(60f, 70f, 40f), new Vector3(60f, 70f, 40f), new Vector3(60f, 70f, 40f) },
             thumb = new Vector3(0f, 0f, -10f)
         };

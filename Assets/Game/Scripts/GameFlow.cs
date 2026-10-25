@@ -48,7 +48,7 @@ namespace GJ.Game
         State _state;
         State _settingsReturn;
         float _crt = 1f;
-        float _shotDim = 0.35f;   // how dark the drifting title shots sit behind whatever is on screen
+        float _shotDim = 0.15f;   // how dark the drifting title shots sit behind whatever is on screen
         static readonly int CrtId = Shader.PropertyToID("_PsxCrt");
         static readonly int TvOffId = Shader.PropertyToID("_PsxTvOff");
         static readonly int StaticId = Shader.PropertyToID("_PsxStatic");

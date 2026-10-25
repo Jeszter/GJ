@@ -595,8 +595,11 @@ namespace GJ.PSX.EditorTools
             // The revolver in the hand: lighter steel and the skin's warm glow, so it reads in the dark as the fist does.
             Lit("HeldGunmetal", lit, MakeTexture("held_gunmetal", 16, (x, y) =>
                 Shade(new Color(0.23f, 0.24f, 0.28f), (Hash(x, 0, 160) - 0.5f) * 0.08f + (Hash(x, y, 161) - 0.5f) * 0.05f)), new Color(0.09f, 0.075f, 0.06f));
-            Lit("HeldGripWood", lit, MakeTexture("held_grip_wood", 16, (x, y) =>
-                (x + y) % 4 == 0 ? new Color(0.22f, 0.08f, 0.06f) : Shade(new Color(0.42f, 0.13f, 0.09f), (Hash(x, y, 162) - 0.5f) * 0.08f)), new Color(0.12f, 0.045f, 0.03f));
+            // Black rubber grips, stippled; the one in the hand glows faintly like the skin round it.
+            Lit("RubberGrip", lit, MakeTexture("rubber_grip", 16, (x, y) =>
+                Shade(new Color(0.09f, 0.085f, 0.085f), (Hash(x, y, 164) - 0.5f) * 0.06f + ((x + y * 3) % 5 == 0 ? -0.03f : 0f))), new Color(0.01f, 0.01f, 0.01f));
+            Lit("HeldRubberGrip", lit, MakeTexture("held_rubber_grip", 16, (x, y) =>
+                Shade(new Color(0.14f, 0.13f, 0.13f), (Hash(x, y, 164) - 0.5f) * 0.07f + ((x + y * 3) % 5 == 0 ? -0.04f : 0f))), new Color(0.07f, 0.055f, 0.045f));
             Lit("HeldBrass", lit, Plain("held_brass", new Color(0.72f, 0.55f, 0.1f), 0.1f), new Color(0.1f, 0.08f, 0.03f));
             Lit("Sand", lit, MakeTexture("sand", 16, (x, y) =>
                 Shade(new Color(0.62f, 0.52f, 0.34f), (Hash(x, y, 163) - 0.5f) * 0.14f)), new Color(0.05f, 0.04f, 0.02f));
@@ -750,6 +753,25 @@ namespace GJ.PSX.EditorTools
             Additive("MoonGlow", add, Glow(), new Color(0.85f, 0.88f, 1f) * 1.3f);
             Additive("Steam", add, Glow(), new Color(0.6f, 0.65f, 0.7f) * 0.18f);
             Additive("SparkFlash", add, Glow(), new Color(0.75f, 0.85f, 1f) * 2f);
+
+            // The end: the mine rescue truck that comes up the road at dawn, and the crew in it.
+            Lit("VanPaint", lit, MakeTexture("van_paint", 16, (x, y) =>
+                Shade(new Color(0.78f, 0.77f, 0.72f), (Hash(x, y, 340) - 0.5f) * 0.05f - (y < 3 ? 0.12f * (3 - y) / 3f : 0f))), new Color(0.06f, 0.06f, 0.055f));
+            Lit("VanRed", lit, Plain("van_red", new Color(0.62f, 0.1f, 0.07f), 0.05f), new Color(0.05f, 0.01f, 0.01f));
+            Lit("VanGlass", lit, Plain("van_glass", new Color(0.12f, 0.15f, 0.17f), 0.04f), new Color(0.02f, 0.025f, 0.03f));
+            Lit("Headlamp", lit, Plain("headlamp", Color.white, 0f), new Color(1f, 0.92f, 0.75f) * 2.4f);
+            Lit("TailLamp", lit, Plain("tail_lamp", Color.white, 0f), new Color(1f, 0.08f, 0.04f) * 1.8f);
+            Lit("Beacon", lit, Plain("beacon", Color.white, 0f), new Color(1f, 0.55f, 0.08f) * 2.4f);
+            Additive("BeaconHalo", add, Glow(), new Color(1f, 0.55f, 0.1f) * 0.55f);
+            Additive("HeadlampHalo", add, Glow(), new Color(1f, 0.92f, 0.75f) * 0.5f);
+            Lit("SignRescue", lit, Sign("sign_rescue", 64, 16, new Color(0.62f, 0.1f, 0.07f), new Color(0.95f, 0.93f, 0.88f), 1, "MINE RESCUE"));
+            // Orange rescue coveralls with a pale reflective band, a white hard hat.
+            Lit("RescueSuit", lit, MakeTexture("rescue_suit", 16, (x, y) =>
+                Shade(new Color(0.85f, 0.38f, 0.08f), (Hash(x / 2, y / 2, 341) - 0.5f) * 0.08f)), new Color(0.07f, 0.03f, 0.01f));
+            Lit("ReflectBand", lit, Plain("reflect_band", new Color(0.8f, 0.82f, 0.8f), 0.04f), new Color(0.2f, 0.2f, 0.2f));
+            Lit("HardHat", lit, Plain("hard_hat", new Color(0.88f, 0.87f, 0.82f), 0.05f), new Color(0.05f, 0.05f, 0.05f));
+            Lit("Asphalt", lit, MakeTexture("asphalt", 32, (x, y) =>
+                Shade(new Color(0.2f, 0.19f, 0.18f), (Hash(x, y, 342) - 0.5f) * 0.1f + (Hash(x / 4, y / 4, 343) - 0.5f) * 0.06f)));
         }
 
         static Material SaveMaterial(string name, Material m)
