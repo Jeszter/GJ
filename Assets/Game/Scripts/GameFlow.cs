@@ -343,7 +343,7 @@ namespace GJ.Game
             _state = State.Playing;
             Open(null);
             _title.gameObject.SetActive(false);
-            _title.text = "ONE MORE TIME";
+            _title.text = "AFTERBREATH";
             _black.color = Color.clear;
             Time.timeScale = 1f;
             AudioListener.pause = false;
@@ -448,7 +448,7 @@ namespace GJ.Game
         {
             GameSettings.Save();
             bool paused = _settingsReturn == State.Paused;
-            _title.text = paused ? Loc.T("PAUSED") : "ONE MORE TIME";
+            _title.text = paused ? Loc.T("PAUSED") : "AFTERBREATH";
             _tagline.gameObject.SetActive(!paused);
             Open(paused ? _pauseMenu : _titleMenu);
         }
@@ -678,7 +678,7 @@ namespace GJ.Game
             _black.raycastTarget = false;
             _black.color = Color.black;
 
-            _title = Label(root, "ONE MORE TIME", 30, new Vector2(0, 62), new Color(0.95f, 0.88f, 0.75f));
+            _title = Label(root, "AFTERBREATH", 30, new Vector2(0, 62), new Color(0.95f, 0.88f, 0.75f));
             _tagline = Label(root, Loc.T(Tagline), 10, new Vector2(0, 38), new Color(0.75f, 0.35f, 0.25f));
             BuildStoryPanel(root);
             _story = Label(root, "", 12, new Vector2(0, -50), new Color(0.9f, 0.86f, 0.78f));

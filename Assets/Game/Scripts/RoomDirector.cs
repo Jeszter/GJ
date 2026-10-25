@@ -758,12 +758,13 @@ namespace GJ.Game
             _paper.sprite = PaperSprite();
             _paper.color = Color.white;
             _paper.raycastTarget = false;
-            _paper.rectTransform.sizeDelta = new Vector2(230, 170);
+            _paper.rectTransform.sizeDelta = new Vector2(290, 180);
             _paper.rectTransform.localRotation = Quaternion.Euler(0, 0, 1.5f);
             _noteText = MakeText(_paper.transform, font, 11, TextAnchor.MiddleLeft, new Vector2(0.5f, 0.5f), Vector2.zero);
             _noteText.color = UiStyle.Ink;
             Destroy(_noteText.GetComponent<Shadow>());
-            _noteText.rectTransform.sizeDelta = new Vector2(200, 150);
+            // Wide enough for the notes' longest hand-broken line (39 characters of Courier at 11) so lines don't wrap twice.
+            _noteText.rectTransform.sizeDelta = new Vector2(262, 158);
             _noteText.horizontalOverflow = HorizontalWrapMode.Wrap;
             _noteText.lineSpacing = 1.1f;
             // Translations run longer than the English: shrink a long note to fit the paper rather than spill off it.
