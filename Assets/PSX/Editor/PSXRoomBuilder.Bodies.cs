@@ -32,6 +32,29 @@ namespace GJ.PSX.EditorTools
             hat.Tube(new Vector3(0, -0.01f, 0), new Vector3(0, 0.01f, 0), 0.17f, 0.17f, 8, Vector3.forward, 4f);
             Place("HardHat", hat, "Helmet", new Vector3(-0.32f, 0.1f, 0.12f), new Vector3(150f, 30f, 0f), body);
 
+            // Blood: a dark pool spread out from under the head, a smear where he slid, spatter round about.
+            var pool = new MeshBuilder { FaceShade = false };
+            for (int i = 0; i < 9; i++)
+            {
+                float a = i / 9f * Mathf.PI * 2f, r = 0.08f + Hash(i, 0, 420) * 0.22f;
+                float s = 0.2f + Hash(i, 1, 421) * 0.22f;
+                pool.M = Matrix4x4.TRS(new Vector3(Mathf.Cos(a) * r, 0.008f + i * 0.0004f, 0.12f + Mathf.Sin(a) * r), Quaternion.Euler(0f, Hash(i, 2, 422) * 90f, 0f), Vector3.one);
+                pool.Quad(new Vector3(-s * 0.5f, 0f, s * 0.5f), new Vector3(s, 0f, 0f), new Vector3(0f, 0f, -s), 4f);
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                pool.M = Matrix4x4.TRS(new Vector3(0.06f * (i % 2), 0.0085f, -0.25f - i * 0.22f), Quaternion.Euler(0f, (Hash(i, 3, 423) - 0.5f) * 30f, 0f), Vector3.one);
+                pool.Quad(new Vector3(-0.07f, 0f, 0.12f), new Vector3(0.14f, 0f, 0f), new Vector3(0f, 0f, -0.24f), 4f);
+            }
+            for (int i = 0; i < 12; i++)
+            {
+                float a = Hash(i, 4, 424) * Mathf.PI * 2f, r = 0.45f + Hash(i, 5, 425) * 0.5f, s = 0.03f + Hash(i, 6, 426) * 0.05f;
+                pool.M = Matrix4x4.TRS(new Vector3(Mathf.Cos(a) * r, 0.009f, 0.15f + Mathf.Sin(a) * r), Quaternion.identity, Vector3.one);
+                pool.Quad(new Vector3(-s, 0f, s), new Vector3(s * 2f, 0f, 0f), new Vector3(0f, 0f, -s * 2f), 4f);
+            }
+            pool.M = Matrix4x4.identity;
+            Place("Blood", pool, "Blood", Vector3.zero, default, body);
+
             var corpse = body.gameObject.AddComponent<Game.Corpse>();
             body.gameObject.SetActive(false);
             return corpse;

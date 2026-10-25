@@ -60,6 +60,16 @@ namespace GJ.PSX.EditorTools
             thumb = new Vector3(0f, 0f, -10f)
         };
 
+        // A hand reaching out to take something: palm down, fingers loose and a little apart, the thumb out to the side,
+        // the forearm running back under the view. (Built as a right arm and mirrored into the left.)
+        static readonly ArmPose ReachOpen = new ArmPose
+        {
+            along = new Vector3(0.12f, -0.3f, 1f), back = new Vector3(0f, 1f, 0.3f), swing = new Vector3(18f, 12f, 0f),
+            knuckle = Vector3.zero, scale = 0.8f,
+            curl = new[] { new Vector3(8f, 14f, 8f), new Vector3(10f, 16f, 10f), new Vector3(12f, 18f, 12f), new Vector3(14f, 20f, 12f) },
+            thumb = new Vector3(0f, 0f, -18f), thumbBend = 10f, thumbTip = 10f
+        };
+
         static void MakeArmsMaterial(Shader lit)
         {
             if (AssetImporter.GetAtPath(ArmsTexture) is TextureImporter importer && (importer.filterMode != FilterMode.Point || importer.mipmapEnabled))

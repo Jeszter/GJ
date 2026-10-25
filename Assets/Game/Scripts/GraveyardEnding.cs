@@ -21,9 +21,9 @@ namespace GJ.Game
         public Transform[] birds;
         public Light moonlight;
         public Color dawnLight = new Color(1f, 0.72f, 0.55f);
-        public AudioClip thudClip, doorClip, stepClip, gaspClip, heartClip;
+        public AudioClip thudClip, doorClip, stepClip, gaspClip, heartClip, shotClip;
 
-        public Color dawnAmbient = new Color(0.6f, 0.55f, 0.55f), dawnFog = new Color(0.5f, 0.47f, 0.5f);
+        public Color dawnAmbient = new Color(1f, 0.92f, 0.88f), dawnFog = new Color(0.55f, 0.52f, 0.55f);
 
         const float LyingRoll = 28f;   // the head on its side in the grass, the world tipped
 
@@ -183,7 +183,8 @@ namespace GJ.Game
                 yield return null;
             }
 
-            // E. Lifted: a blink, then the view rights itself and rises, and sways toward the truck. White.
+            // E. Lifted: a blink, then the view rights itself and rises, and sways toward the truck. Then, cut: black,
+            // and a single shot in the dark.
             yield return Veil(veil, 0f, 1f, 0.35f);
             Play(gaspClip, head.position, 0.8f);
             crew[0].Show(crew[0].stand);
@@ -192,7 +193,7 @@ namespace GJ.Game
             Vector3 toTruck = truck.position - truck.forward * 2.8f;
             toTruck.y = bodyFrom.y;
             Quaternion lifted = head.rotation;
-            for (float t = 0f; t < 4.2f; t += Time.deltaTime)
+            for (float t = 0f; t < 3.2f; t += Time.deltaTime)
             {
                 float k = Mathf.Clamp01(t / 1.4f);
                 head.localPosition = Vector3.Lerp(down, carried, Mathf.SmoothStep(0f, 1f, k)) + Vector3.up * Mathf.Abs(Mathf.Sin(t * 5f)) * 0.03f * k;
@@ -209,12 +210,15 @@ namespace GJ.Game
                 }
                 foreach (var w in crew) w.ShineAt(head.position + head.forward * 2f);
                 float open = t < 0.35f ? 1f - t / 0.35f : 0f;
-                float white = Mathf.Clamp01((t - 2.4f) / 1.8f);
-                veil.color = white > 0f ? new Color(1f, 1f, 1f, white) : new Color(0f, 0f, 0f, open);
+                veil.color = new Color(0f, 0f, 0f, open);
                 yield return null;
             }
-            veil.color = Color.white;
+            veil.color = Color.black;
             if (engine != null) engine.Stop();
+            AudioListener.pause = false;
+            yield return new WaitForSeconds(1.1f);
+            Play(shotClip, head.position + head.forward * 3f, 1f);
+            yield return new WaitForSeconds(2.2f);
             d.flow.OnRoomCleared();
         }
 
@@ -265,6 +269,7 @@ namespace GJ.Game
                 RenderSettings.ambientLight = Color.Lerp(ambient, dawnAmbient, k);
                 RenderSettings.fogColor = Color.Lerp(fog, dawnFog, k);
                 RenderSettings.fogEndDistance = Mathf.Lerp(fogEnd, 40f, k);
+                DynamicGI.UpdateEnvironment();
                 if (sky != null) sky.backgroundColor = Color.Lerp(skyFrom, dawnFog, k);
                 yield return null;
             }

@@ -5,8 +5,9 @@ namespace GJ.Game
 {
     // The graveyard behind the chapel, at night: the figure in the robe knocked your revolver out of your hand and
     // dragged you here, and now it wants you in the ground. Your breaths are what you have left to take: a blow knocks
-    // one out of you, the last one and it is one more time. Bare fists only rock it back a step; the revolver lying out
-    // in the grass is the only thing that will kill it. Get to it, shoot, and the cemetery gate opens on the dawn.
+    // one out of you, the last one and it is one more time. The Zippo stays in your hand; a boot throws the figure back a
+    // step, but the revolver lying out in the grass is the only thing that will hurt it. Find it, shoot, and the
+    // cemetery gate opens on the dawn.
     public class GraveyardPuzzle : RoomPuzzle
     {
         public RobedFigure figure;
@@ -17,10 +18,10 @@ namespace GJ.Game
         public AudioClip punchClip, swishClip, takeClip, drawClip, kickClip;
         public Transform kickLeg;            // a boot and shin under the view, swung up into it to kick
         public GraveyardEnding ending;       // out through the gate: the end of the run
-        public Color dawnFog = new Color(0.32f, 0.3f, 0.36f), dawnAmbient = new Color(0.42f, 0.38f, 0.42f);
+        public Color dawnFog = new Color(0.36f, 0.34f, 0.4f), dawnAmbient = new Color(0.85f, 0.8f, 0.85f);
 
         bool _won;
-        float _nextPunch, _nextKick, _dawn;
+        float _nextKick, _dawn;
         Color _fog, _ambient;
 
         // The air down here is the only air there is: it doesn't run out, it gets knocked out of you.
@@ -48,11 +49,10 @@ namespace GJ.Game
             // The way out of here is the ending, not the director's exit.
             Director.exitZ = float.MaxValue;
             if (kickLeg != null) kickLeg.gameObject.SetActive(false);
-            // However you got here, the revolver is out in the grass, and the hand is bare: nothing in it but a fist.
+            // However you got here, the revolver is out in the grass; the Zippo is still in your hand.
             if (Director.Gun != null && Director.Gun.Owned) Director.Gun.TakeAway();
             GameSession.GunInGraveyard = true;
             if (lostGun != null) lostGun.SetActive(true);
-            Director.BareHands();
             StartCoroutine(Intro());
         }
 
@@ -110,7 +110,7 @@ namespace GJ.Game
                 yield return null;
             }
             figure.Show(figure.idle);
-            Say("get to the revolver\n<size=10>fists only hold it off. [LMB] punch   [RMB] kick</size>");
+            Say("find your revolver\n<size=10>only a bullet will stop it.   [V] kick it back</size>");
 
             // Hand the view back looking where the head ended up.
             var e = head.rotation.eulerAngles;
@@ -156,6 +156,7 @@ namespace GJ.Game
                 {
                     RenderSettings.fogColor = Color.Lerp(_fog, dawnFog, _dawn);
                     RenderSettings.ambientLight = Color.Lerp(_ambient, dawnAmbient, _dawn);
+                    if (_dawn < 1f) DynamicGI.UpdateEnvironment();
                 }
                 // Out through the gate and the legs give.
                 if (ending != null && !ending.Running && Director != null && Director.Alive
@@ -165,24 +166,13 @@ namespace GJ.Game
             }
             if (Director == null || !Director.Alive || FirstPersonPaused()) return;
 
-            // Bare fists, with the revolver not in hand: they rock it back a step, no more.
-            var gun = Director.Gun;
-            var mouse = Mouse.current;
-            bool armed = gun != null && gun.Drawn;
             bool locked = Cursor.lockState == CursorLockMode.Locked;
-            if (!armed && mouse != null && mouse.leftButton.wasPressedThisFrame && Time.time >= _nextPunch && locked)
-            {
-                _nextPunch = Time.time + 0.5f;
-                Director.Jab();
-                StartCoroutine(Land(HandAnimator.PunchLands, punchRange, 35f, false));
-            }
-            // A kick: slower, but it throws the figure back a long step and breaks off its swing.
+            // No punching it: a kick only throws the figure back a long step and breaks off its swing.
             var kb = Keyboard.current;
-            bool kick = (mouse != null && mouse.rightButton.wasPressedThisFrame) || (kb != null && kb.fKey.wasPressedThisFrame);
-            if (kick && kickLeg != null && Time.time >= _nextKick && Time.time >= _nextPunch - 0.3f && locked)
+            bool kick = kb != null && kb.vKey.wasPressedThisFrame;
+            if (kick && kickLeg != null && Time.time >= _nextKick && locked)
             {
                 _nextKick = Time.time + 1.1f;
-                _nextPunch = Time.time + 0.6f;
                 StartCoroutine(Kick());
                 StartCoroutine(Land(0.16f, punchRange + 0.3f, 45f, true));
             }

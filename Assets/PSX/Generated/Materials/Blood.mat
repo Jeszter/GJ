@@ -31,7 +31,7 @@ Material:
     m_Floats:
     - _Affine: 0.25
     - _Ambient: 1
-    - _DepthOffset: 0
+    - _DepthOffset: -2
     - _SnapResolution: 180
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}

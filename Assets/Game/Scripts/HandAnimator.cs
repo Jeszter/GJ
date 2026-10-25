@@ -23,6 +23,11 @@ namespace GJ.Game
         public AudioClip lidClip;
         public AudioClip closeClip;
         public AudioClip strikeClip;
+        public Transform reachHand;          // the left hand, for taking things; off until it reaches
+        public Transform[] reachFingers, reachThumb;
+
+        // Where the reaching hand waits, below the view, and how far out it goes.
+        public static readonly Vector3 ReachLow = new Vector3(-0.2f, -0.6f, 0.3f), ReachOut = new Vector3(-0.08f, -0.22f, 0.55f);
 
         public float sway = 0.0007f;
         public float bob = 0.012f;
@@ -88,6 +93,8 @@ namespace GJ.Game
             _thumbLift = 0f;
             _thumbPress = 0f;
             _thrust = _open = _palm = _twist = 0f;
+            _reaching = null;
+            if (reachHand != null) reachHand.gameObject.SetActive(false);
         }
 
         // Start dark (lid shut, no flame), then light up on our own.
@@ -222,11 +229,68 @@ namespace GJ.Game
             _act = null;
         }
 
-        // Out and take it: the hand goes forward with the fingers spread, closes on the thing and comes back.
+        // Out and take it. With a free left hand: it comes up from below, reaches out open, closes on the thing and
+        // drops back out of view, the lighter hand staying where it is. Without one, the lighter hand goes itself.
         public void Grab()
         {
+            if (reachHand != null)
+            {
+                if (_reaching == null) _reaching = StartCoroutine(TakeRoutine());
+                return;
+            }
             if (_act != null) return;
             _act = StartCoroutine(Move(0.16f, 0.1f, 0.22f, 1f, 1f, 0f, true));
+        }
+
+        Coroutine _reaching;
+        Quaternion[] _reachRest;
+
+        IEnumerator TakeRoutine()
+        {
+            if (_reachRest == null)
+            {
+                var joints = new System.Collections.Generic.List<Transform>(reachFingers);
+                joints.AddRange(reachThumb);
+                _reachRest = new Quaternion[joints.Count];
+                for (int i = 0; i < joints.Count; i++) _reachRest[i] = joints[i].localRotation;
+            }
+            reachHand.gameObject.SetActive(true);
+            Quaternion low = Quaternion.Euler(-10f, 50f, 0f), out_ = Quaternion.Euler(-40f, 60f, 0f);   // mirrored arm: the forearm from the lower left
+            for (float t = 0f; t < 0.2f; t += Time.deltaTime)
+            {
+                float k = 1f - (1f - t / 0.2f) * (1f - t / 0.2f);
+                reachHand.localPosition = Vector3.Lerp(ReachLow, ReachOut, k);
+                reachHand.localRotation = Quaternion.Slerp(low, out_, k);
+                Curl(0f);
+                yield return null;
+            }
+            reachHand.localPosition = ReachOut;
+            for (float t = 0f; t < 0.12f; t += Time.deltaTime)
+            {
+                Curl(t / 0.12f);
+                yield return null;
+            }
+            Curl(1f);
+            yield return new WaitForSeconds(0.1f);
+            for (float t = 0f; t < 0.28f; t += Time.deltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / 0.28f);
+                reachHand.localPosition = Vector3.Lerp(ReachOut, ReachLow, k) + Vector3.up * Mathf.Sin(k * Mathf.PI) * 0.03f;
+                reachHand.localRotation = Quaternion.Slerp(out_, low, k);
+                yield return null;
+            }
+            Curl(0f);
+            reachHand.gameObject.SetActive(false);
+            _reaching = null;
+        }
+
+        // The left fingers closing round what they took (0 open, 1 closed), the thumb folding over.
+        void Curl(float k)
+        {
+            for (int i = 0; i < reachFingers.Length; i++)
+                reachFingers[i].localRotation = _reachRest[i] * Quaternion.Euler(k * (i % 3 == 0 ? 55f : 65f), 0f, 0f);
+            for (int i = 0; i < reachThumb.Length; i++)
+                reachThumb[i].localRotation = _reachRest[reachFingers.Length + i] * Quaternion.Euler(k * 30f, 0f, 0f);
         }
 
         // Palm out against a door or a weight and shove.

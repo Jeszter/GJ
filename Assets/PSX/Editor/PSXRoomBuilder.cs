@@ -710,7 +710,9 @@ namespace GJ.PSX.EditorTools
                 return blood ? Shade(new Color(0.35f, 0.02f, 0.02f), (Hash(x, y, 189) - 0.5f) * 0.08f) : Shade(c, (Hash(x, y, 190) - 0.5f) * 0.06f);
             }), new Color(0.22f, 0.18f, 0.18f));
             Lit("Pine", lit, MakeTexture("pine", 16, (x, y) =>
-                Shade(new Color(0.06f, 0.1f, 0.07f), (Hash(x, y, 184) - 0.5f) * 0.06f)));
+                Shade(new Color(0.07f, 0.12f, 0.08f), (Hash(x, y, 184) - 0.5f) * 0.07f + (y % 4 == 0 ? -0.025f : 0f))));
+            Lit("PineLight", lit, MakeTexture("pine_light", 16, (x, y) =>
+                Shade(new Color(0.11f, 0.17f, 0.1f), (Hash(x, y, 186) - 0.5f) * 0.08f + (y % 4 == 0 ? -0.03f : 0f))));
             // Faded blue work overalls for the bodies left on the floor: they have to read against warm brick and tile.
             Lit("Coverall", lit, MakeTexture("coverall", 16, (x, y) =>
                 Shade(new Color(0.34f, 0.42f, 0.54f), (Hash(x / 2, y / 2, 171) - 0.5f) * 0.08f + (x % 8 == 0 ? -0.05f : 0f))),
@@ -753,6 +755,7 @@ namespace GJ.PSX.EditorTools
             Additive("MoonGlow", add, Glow(), new Color(0.85f, 0.88f, 1f) * 1.3f);
             Additive("Steam", add, Glow(), new Color(0.6f, 0.65f, 0.7f) * 0.18f);
             Additive("SparkFlash", add, Glow(), new Color(0.75f, 0.85f, 1f) * 2f);
+            Additive("SlashTrail", add, GlowStrip(), new Color(0.75f, 0.7f, 0.68f) * 0.18f);
 
             // The end: the mine rescue truck that comes up the road at dawn, and the crew in it.
             Lit("VanPaint", lit, MakeTexture("van_paint", 16, (x, y) =>
@@ -770,6 +773,23 @@ namespace GJ.PSX.EditorTools
                 Shade(new Color(0.85f, 0.38f, 0.08f), (Hash(x / 2, y / 2, 341) - 0.5f) * 0.08f)), new Color(0.07f, 0.03f, 0.01f));
             Lit("ReflectBand", lit, Plain("reflect_band", new Color(0.8f, 0.82f, 0.8f), 0.04f), new Color(0.2f, 0.2f, 0.2f));
             Lit("HardHat", lit, Plain("hard_hat", new Color(0.88f, 0.87f, 0.82f), 0.05f), new Color(0.05f, 0.05f, 0.05f));
+            Lit("SignAmbulance", lit, Sign("sign_ambulance", 64, 16, new Color(0.95f, 0.94f, 0.9f), new Color(0.7f, 0.08f, 0.06f), 1, "AMBULANCE"));
+            Lit("RedCross", lit, MakeTexture("red_cross", 16, (x, y) =>
+                (x >= 6 && x <= 9 && y >= 2 && y <= 13) || (y >= 6 && y <= 9 && x >= 2 && x <= 13) ? new Color(0.78f, 0.08f, 0.06f) : new Color(0.95f, 0.94f, 0.9f)), new Color(0.05f, 0.03f, 0.03f));
+            Lit("Chequer", lit, MakeTexture("chequer", 32, 4, (x, y) =>
+                ((x / 2) + (y / 2)) % 2 == 0 ? new Color(0.78f, 0.1f, 0.07f) : new Color(0.95f, 0.94f, 0.9f)), new Color(0.05f, 0.03f, 0.03f));
+            Lit("BlueLamp", lit, Plain("blue_lamp", Color.white, 0f), new Color(0.2f, 0.4f, 1f) * 2.2f);
+            Additive("BlueHalo", add, Glow(), new Color(0.25f, 0.45f, 1f) * 0.5f);
+            Lit("ParamedicSuit", lit, MakeTexture("paramedic_suit", 16, (x, y) =>
+                Shade(new Color(0.12f, 0.3f, 0.2f), (Hash(x / 2, y / 2, 344) - 0.5f) * 0.06f)), new Color(0.01f, 0.03f, 0.02f));
+            Lit("HiVis", lit, Plain("hi_vis", new Color(0.86f, 0.92f, 0.2f), 0.04f), new Color(0.22f, 0.24f, 0.04f));
+            Lit("Hair", lit, MakeTexture("hair", 16, (x, y) =>
+                Shade(new Color(0.16f, 0.11f, 0.08f), (Hash(x, y / 3, 345) - 0.5f) * 0.08f)));
+            Lit("GrassBlade", lit, MakeTexture("grass_blade", 8, (x, y) =>
+                Shade(new Color(0.24f, 0.33f, 0.14f), (Hash(x, y, 346) - 0.5f) * 0.08f + y * 0.012f)), new Color(0.02f, 0.03f, 0.01f));
+            Lit("DryGrass", lit, MakeTexture("dry_grass", 8, (x, y) =>
+                Shade(new Color(0.4f, 0.36f, 0.2f), (Hash(x, y, 347) - 0.5f) * 0.08f + y * 0.012f)), new Color(0.03f, 0.03f, 0.01f));
+            Additive("FogBank", add, Glow(), new Color(0.55f, 0.58f, 0.65f) * 0.12f);
             Lit("Asphalt", lit, MakeTexture("asphalt", 32, (x, y) =>
                 Shade(new Color(0.2f, 0.19f, 0.18f), (Hash(x, y, 342) - 0.5f) * 0.1f + (Hash(x / 4, y / 4, 343) - 0.5f) * 0.06f)));
         }
@@ -799,7 +819,7 @@ namespace GJ.PSX.EditorTools
         static bool Decal(string name) =>
             name.StartsWith("Sign") || name.StartsWith("Note") || name == "Water" || name == "Grate" || name == "Hazard" ||
             name == "Paper" || name == "Ash" || name == "Powder" || name == "Notice" || name == "Poster" || name == "Photo" ||
-            name == "Calendar";
+            name == "Calendar" || name == "Blood";
 
         // The PS1's affine texture wobble is part of the look, but on big flat panels and anything with writing on it
         // (the door, signs, notes, displays) it makes the picture swim as you walk past; those keep their textures still.
@@ -1427,6 +1447,9 @@ namespace GJ.PSX.EditorTools
             _door = door.gameObject.AddComponent<Game.VaultDoor>();
             _door.leaf = leaf;
             _door.wheel = wheel;
+            // Out into the corridor, which is only as wide as the leaf: short of square, so it lies along the corridor
+            // wall instead of swinging on into it (the room side has bolts and machinery by the door).
+            _door.openAngle = -84f;
             // Blast flash where the pipe from the fuse inlet meets the mechanism behind the door.
             var flash = new GameObject("BlastFlash").AddComponent<Light>();
             flash.transform.SetParent(door, false);
@@ -2167,6 +2190,18 @@ namespace GJ.PSX.EditorTools
             anim.lidClip = PSXSoundGenerator.Load("zippo_lid");
             anim.closeClip = PSXSoundGenerator.Load("zippo_close");
             anim.strikeClip = PSXSoundGenerator.Load("zippo_strike");
+
+            // The other hand, for taking things: the same arm mirrored into a left one, open, kept down out of view
+            // until it reaches out for something and closes on it.
+            var reachHolder = new GameObject("ReachHand").transform;
+            reachHolder.SetParent(head, false);
+            reachHolder.localPosition = Game.HandAnimator.ReachLow;
+            reachHolder.localScale = new Vector3(-1f, 1f, 1f);
+            var reach = Arm(ReachOpen, reachHolder);
+            reachHolder.gameObject.SetActive(false);
+            anim.reachHand = reachHolder;
+            anim.reachFingers = reach.fingers;
+            anim.reachThumb = reach.thumb;
 
             return new PlayerRig { controller = fpc, head = head, hand = hand, animator = anim, lighterLight = lighterLight };
         }

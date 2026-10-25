@@ -33,9 +33,11 @@ namespace GJ.PSX.EditorTools
             Vector3[] downR = { shR, new Vector3(0.33f, 1.17f, 0.04f), new Vector3(0.35f, 0.93f, 0.14f) };
             Vector3[] outR = { shR, new Vector3(0.3f, 1.42f, 0.3f), new Vector3(0.26f, 1.4f, 0.6f) };
             Vector3[] upR = { shR, new Vector3(0.36f, 1.78f, 0.06f), new Vector3(0.33f, 2.05f, -0.04f) };
+            Vector3[] slashR = { shR, new Vector3(0.29f, 1.3f, 0.33f), new Vector3(0.2f, 1.0f, 0.6f) };
             fig.idle = CultistPose(root, "Idle", downR, downL);
             fig.reach = CultistPose(root, "Reach", outR, downL);
             fig.strike = CultistPose(root, "Strike", upR, downL);
+            fig.slash = CultistPose(root, "Slash", slashR, new[] { shL, new Vector3(-0.36f, 1.2f, -0.08f), new Vector3(-0.4f, 0.98f, -0.2f) });
             fig.fallen = CultistPose(root, "Fallen", outR, new[] { shL, new Vector3(-0.55f, 1.4f, 0.05f), new Vector3(-0.82f, 1.38f, 0.1f) });
             fig.fallen.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
             fig.fallen.transform.localPosition = new Vector3(0f, 0.3f, 0f);
@@ -51,9 +53,17 @@ namespace GJ.PSX.EditorTools
             }
             fig.eyes = eyes;
 
-            // The blade in the right hand: hanging low, or raised over the head.
-            fig.knifeLow = Machete(root, downR[2] + new Vector3(0f, -0.03f, 0.06f), new Vector3(160f, 0f, 0f));
-            fig.knifeHigh = Machete(root, upR[2] + new Vector3(0f, 0.03f, 0f), new Vector3(-15f, 0f, -30f));
+            // The blade in the right fist, the grip across the palm: hanging low and pointing ahead, raised with the blade
+            // laid back over the shoulder, and brought down and forward at the end of the blow.
+            fig.knifeLow = Machete(root, Fist(downR), new Vector3(0.05f, -0.25f, 0.97f));
+            fig.knifeHigh = Machete(root, Fist(upR), new Vector3(0.05f, 0.3f, -0.95f));
+            fig.knifeSlash = Machete(root, Fist(slashR), new Vector3(-0.12f, -0.85f, 0.5f));
+            fig.trail = SlashTrail(root, shR, Fist(upR) + new Vector3(0.05f, 0.3f, -0.95f).normalized * 0.98f, Fist(slashR) + new Vector3(-0.12f, -0.85f, 0.5f).normalized * 0.98f);
+            var drop = new MeshBuilder { FaceShade = false };
+            drop.Cross(new Vector3(0f, -0.02f, 0f), 0.05f, 0.05f);
+            var dropGo = Place("BloodDrop", drop, "Blood", Vector3.zero, default, parent);
+            dropGo.SetActive(false);
+            fig.bloodDrop = dropGo;
             var splat = new MeshBuilder { FaceShade = false };
             for (int i = 0; i < 6; i++)
             {
@@ -133,21 +143,56 @@ namespace GJ.PSX.EditorTools
             return g.gameObject;
         }
 
-        // A machete as long as an arm: wrapped grip, a crossbar, and a broad blade that widens to its tip, bloody. Grip at
-        // the origin, blade along +Y; hidden until the figure draws it.
-        static GameObject Machete(Transform parent, Vector3 grip, Vector3 euler)
+        // Where the fist closes, from an arm's shoulder, elbow and wrist: a little past the wrist, inside the hand.
+        static Vector3 Fist(Vector3[] arm) => arm[2] + (arm[2] - arm[1]).normalized * 0.07f;
+
+        // A machete as long as an arm, its grip through the fist and its blade along blade, the flat of it facing the
+        // figure's sides so the edge leads the blow. Wrapped grip, a crossbar, a broad blade widening to its tip,
+        // bloody; hidden until the figure draws it.
+        static GameObject Machete(Transform parent, Vector3 fist, Vector3 blade)
         {
-            var g = Group("Machete", grip, 0f, parent);
-            g.localRotation = Quaternion.Euler(euler);
+            blade = blade.normalized;
+            Vector3 flat = Vector3.right - blade * Vector3.Dot(Vector3.right, blade);
+            var g = Group("Machete", fist + blade * 0.02f, 0f, parent);
+            g.localRotation = Quaternion.LookRotation(flat.normalized, blade);
             Cyl("Grip", "Leather", new Vector3(0f, -0.12f, 0f), 0.022f, 0.2f, 6, default, 6f, g);
             Block("Guard", "DarkMetal", new Vector3(0f, 0.09f, 0f), new Vector3(0.1f, 0.025f, 0.035f), default, 6f, g);
-            var blade = new MeshBuilder();
-            blade.Quad(new Vector3(-0.05f, 0.1f, 0.005f), new Vector3(0.1f, 0f, 0f), new Vector3(0.035f, 0.88f, 0f), 1f / 0.1f);
-            blade.Quad(new Vector3(0.05f, 0.1f, -0.005f), new Vector3(-0.1f, 0f, 0f), new Vector3(0.035f, 0.88f, 0f), 1f / 0.1f);
-            blade.Box(new Vector3(-0.05f, 0.54f, 0f), new Vector3(0.012f, 0.88f, 0.012f), 8f);
-            Place("Blade", blade, "BloodyBlade", Vector3.zero, default, g);
+            var steel = new MeshBuilder();
+            steel.Quad(new Vector3(-0.05f, 0.1f, 0.005f), new Vector3(0.1f, 0f, 0f), new Vector3(0.035f, 0.88f, 0f), 1f / 0.1f);
+            steel.Quad(new Vector3(0.05f, 0.1f, -0.005f), new Vector3(-0.1f, 0f, 0f), new Vector3(0.035f, 0.88f, 0f), 1f / 0.1f);
+            steel.Box(new Vector3(-0.05f, 0.54f, 0f), new Vector3(0.012f, 0.88f, 0.012f), 8f);
+            Place("Blade", steel, "BloodyBlade", Vector3.zero, default, g);
             g.gameObject.SetActive(false);
             return g.gameObject;
+        }
+
+        // The smear of light along the blade's path for the instant of a blow: a band swept over the shoulder from the
+        // raised tip to the lowered one, inner edge two thirds of the way out.
+        static GameObject SlashTrail(Transform root, Vector3 shoulder, Vector3 from, Vector3 to)
+        {
+            Vector3 a = from - shoulder, b = to - shoulder;
+            float angA = Mathf.Atan2(a.y, a.z), angB = Mathf.Atan2(b.y, b.z);
+            if (angB > angA) angB -= Mathf.PI * 2f;   // round over the top, not under
+            var mb = new MeshBuilder { FaceShade = false };
+            const int steps = 10;
+            Vector3 Point(float t, float r)
+            {
+                float ang = Mathf.Lerp(angA, angB, t);
+                float len = Mathf.Lerp(new Vector2(a.y, a.z).magnitude, new Vector2(b.y, b.z).magnitude, t) * r;
+                return shoulder + new Vector3(Mathf.Lerp(a.x, b.x, t) * r, Mathf.Sin(ang) * len, Mathf.Cos(ang) * len);
+            }
+            // Only the stroke itself, from over the head down the front; the glow runs across the band, so the band
+            // reads as one continuous smear along the blade's path.
+            for (int i = 0; i < steps; i++)
+            {
+                float t0 = Mathf.Lerp(0.35f, 1f, i / (float)steps), t1 = Mathf.Lerp(0.35f, 1f, (i + 1) / (float)steps);
+                Vector3 o = Point(t0, 0.82f), w = Point(t0, 1f) - o, u = Point(t1, 0.82f) - o;
+                mb.Quad(o, w, u, 1f);
+                mb.Quad(o, w, u, 1f, 0f, true);
+            }
+            var go = Place("SlashTrail", mb, "SlashTrail", Vector3.zero, default, root);
+            go.SetActive(false);
+            return go;
         }
 
         // A cast-iron lamp post: a stepped foot, a fluted post with a collar, a scrolled arm out over the path and a
@@ -299,7 +344,7 @@ namespace GJ.PSX.EditorTools
             sun.transform.rotation = Quaternion.Euler(35f, 160f, 0f);
             sun.type = LightType.Directional;
             sun.color = new Color(0.55f, 0.62f, 0.85f);
-            sun.intensity = 0.4f;
+            sun.intensity = 0.75f;
             sun.shadows = LightShadows.None;
 
             // The revolver where it landed, a glint on it.
@@ -311,6 +356,15 @@ namespace GJ.PSX.EditorTools
             var glint = new MeshBuilder();
             glint.Cross(Vector3.zero, 0.12f, 0.12f);
             Place("Glint", glint, "Mote", new Vector3(0f, 0.08f, 0f), default, gun);
+            // A little warm light on it, so the revolver can be found in the grass at night.
+            var gunLight = new GameObject("GunLight").AddComponent<Light>();
+            gunLight.transform.SetParent(gun, false);
+            gunLight.transform.localPosition = new Vector3(0f, 0.6f, 0f);
+            gunLight.type = LightType.Point;
+            gunLight.range = 3f;
+            gunLight.intensity = 2.6f;
+            gunLight.color = new Color(1f, 0.85f, 0.6f);
+            gunLight.shadows = LightShadows.None;
             puzzle.lostGun = gun.gameObject;
             puzzle.lostGunPoint = gun;
             puzzle.punchClip = PSXSoundGenerator.Load("clunk");
@@ -328,8 +382,10 @@ namespace GJ.PSX.EditorTools
 
             // After the auto colliders (none of this needs one): the forest, the mist, and the figure.
             var forest = new MeshBuilder();
+            var forestLight = new MeshBuilder();
+            var trunks = new MeshBuilder();
             var dead = new MeshBuilder();
-            for (int i = 0; i < 230; i++)
+            for (int i = 0; i < 260; i++)
             {
                 float a = Hash(i, 0, 187) * Mathf.PI * 2f;
                 float x = Mathf.Lerp(-34f, 34f, Hash(i, 1, 188)), z = Mathf.Lerp(-4f, 82f, Hash(i, 2, 189));
@@ -340,12 +396,8 @@ namespace GJ.PSX.EditorTools
                 if (inside || road || clearing) continue;
                 float h = 6f + Hash(i, 3, 190) * 7f;
                 var p = new Vector3(x, 0f, z);
-                if (Hash(i, 4, 191) > 0.25f)
-                {
-                    forest.Tube(p, p + Vector3.up * h * 0.25f, 0.18f, 0.14f, 5, Vector3.forward, 1f);
-                    for (int k = 0; k < 3; k++)
-                        forest.Tube(p + Vector3.up * h * (0.2f + k * 0.25f), p + Vector3.up * h * (0.55f + k * 0.22f), h * (0.24f - k * 0.06f), 0.02f, 7, Vector3.forward, 0.5f);
-                }
+                if (Hash(i, 4, 191) > 0.18f)
+                    PineTree(Hash(i, 5, 193) > 0.6f ? forestLight : forest, trunks, p, h, i);
                 else
                 {
                     dead.Tube(p, p + new Vector3(0.3f, h * 0.7f, 0f), 0.22f, 0.05f, 6, Vector3.forward, 1f);
@@ -358,17 +410,37 @@ namespace GJ.PSX.EditorTools
                 }
             }
             Place("Forest", forest, "Pine", Vector3.zero, default, yard);
+            Place("ForestLight", forestLight, "PineLight", Vector3.zero, default, yard);
+            Place("Trunks", trunks, "Wood", Vector3.zero, default, yard);
             Place("DeadTrees", dead, "Wood", Vector3.zero, default, yard);
-            var mist = new MeshBuilder { FaceShade = false };
-            for (int i = 0; i < 70; i++)
+            ForestFloor(yard, 190, (x, z) =>
+                (x > RoomMin.x - 1.5f && x < RoomMax.x + 1.5f && z > -2f && z < RoomMax.z + 1.5f)
+                || (z > EndRoadZ - 4f && z < EndRoadZ + 4f) || (Mathf.Abs(x) < 2f && z > RoomMax.z && z < EndRoadZ));
+            // Mist in three layers that drift each their own way: a thin one hugging the grass, a deeper one at the
+            // knee, and banks of it out between the trees.
+            for (int layer = 0; layer < 3; layer++)
             {
-                var c = new Vector3(Mathf.Lerp(-20f, 20f, Hash(i, 5, 192)), 0.35f + Hash(i, 6, 193) * 0.5f, Mathf.Lerp(2f, 48f, Hash(i, 7, 194)));
-                float w = 4f + Hash(i, 8, 195) * 5f;
-                float yaw = Hash(i, 9, 196) * 180f;
-                var u = Quaternion.Euler(0f, yaw, 0f) * Vector3.right * w;
-                mist.Card(c - u * 0.5f, u, Vector3.up * 1.3f);
+                var mist = new MeshBuilder { FaceShade = false };
+                int count = layer == 2 ? 40 : 55;
+                for (int i = 0; i < count; i++)
+                {
+                    int k = i + layer * 100;
+                    float x = layer == 2 ? Mathf.Lerp(-34f, 34f, Hash(k, 5, 192)) : Mathf.Lerp(-20f, 20f, Hash(k, 5, 192));
+                    float z = layer == 2 ? Mathf.Lerp(-4f, 80f, Hash(k, 7, 194)) : Mathf.Lerp(2f, 70f, Hash(k, 7, 194));
+                    if (layer == 2 && x > RoomMin.x && x < RoomMax.x && z < RoomMax.z) x += Mathf.Sign(x) * 18f;
+                    float y = layer == 0 ? 0.05f : layer == 1 ? 0.3f + Hash(k, 6, 193) * 0.4f : 0.5f + Hash(k, 6, 193) * 1.5f;
+                    float w = (layer == 2 ? 8f : 4f) + Hash(k, 8, 195) * 5f;
+                    float h = layer == 0 ? 0.7f : layer == 1 ? 1.3f : 3f;
+                    var u = Quaternion.Euler(0f, Hash(k, 9, 196) * 180f, 0f) * Vector3.right * w;
+                    mist.Card(new Vector3(x, y, z) - u * 0.5f, u, Vector3.up * h);
+                }
+                var layerGo = Place("GroundMist", mist, layer == 2 ? "FogBank" : "Steam", Vector3.zero, default, yard);
+                var drift = layerGo.AddComponent<Game.Drift>();
+                drift.axis = layer == 1 ? new Vector3(0.6f, 0f, 0.8f) : layer == 2 ? Vector3.forward : Vector3.right;
+                drift.distance = 1f + layer;
+                drift.period = 26f + layer * 9f;
             }
-            Place("GroundMist", mist, "Steam", Vector3.zero, default, yard);
+            GraveyardPlants(yard);
             puzzle.figure = RobedFigure(_world, new Vector3(0f, 0f, 10f), 180f);
             var life = new GameObject("Life").transform;
             life.SetParent(_world, false);
@@ -382,12 +454,12 @@ namespace GJ.PSX.EditorTools
             GraveyardEnding(_world, puzzle, rig).moonlight = sun;
 
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.17f, 0.18f, 0.24f);
+            RenderSettings.ambientLight = new Color(0.75f, 0.77f, 0.9f);   // PSX/Lit reads the probe linearly: this is still night
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.1f, 0.11f, 0.14f);
-            RenderSettings.fogStartDistance = 3f;
-            RenderSettings.fogEndDistance = 24f;
+            RenderSettings.fogColor = new Color(0.24f, 0.25f, 0.3f);
+            RenderSettings.fogStartDistance = 5f;
+            RenderSettings.fogEndDistance = 32f;
             RenderSettings.skybox = null;
             RenderSettings.sun = sun;
             EditorSceneManager.SaveScene(scene, GraveyardPath);

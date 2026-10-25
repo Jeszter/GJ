@@ -53,9 +53,23 @@ namespace GJ.PSX.EditorTools
             puzzle.snapClip = PSXSoundGenerator.Load("glass_break");
             puzzle.bellClip = PSXSoundGenerator.Load("rumble");
 
-            // The hymn board by the altar: its numbers (the time spent down here) are the director's display.
-            var board = Group("HymnBoard", new Vector3(RoomMin.x + 0.06f, 2.0f, 13.0f), -90f, chapel);
+            // The hymn board on a carved post by the altar rail, turned to the aisle: its numbers (the time spent down
+            // here) are the director's display.
+            var stand = Group("HymnStand", new Vector3(3.0f, 0f, 12.7f), 22f, chapel);
+            Block("Foot", "Wood", new Vector3(0f, 0.04f, 0f), new Vector3(0.5f, 0.08f, 0.12f), default, 2f, stand);
+            Block("Foot", "Wood", new Vector3(0f, 0.04f, 0f), new Vector3(0.12f, 0.08f, 0.5f), default, 2f, stand);
+            Cyl("Post", "Wood", new Vector3(0f, 0.08f, 0f), 0.045f, 1.42f, 8, default, 2f, stand);
+            foreach (float y in new[] { 0.3f, 1.2f })
+                Cyl("Turning", "Wood", new Vector3(0f, y, 0f), 0.065f, 0.08f, 8, default, 2f, stand);
+            var board = Group("HymnBoard", new Vector3(0f, 1.78f, -0.02f), 0f, stand);
             Block("Board", "Wood", new Vector3(0, 0, 0.03f), new Vector3(0.8f, 0.45f, 0.04f), default, 2f, board);
+            Block("Moulding", "Wood", new Vector3(0, 0.25f, 0.01f), new Vector3(0.9f, 0.06f, 0.08f), default, 2f, board);
+            Block("Moulding", "Wood", new Vector3(0, -0.25f, 0.01f), new Vector3(0.9f, 0.06f, 0.08f), default, 2f, board);
+            foreach (float s in new[] { -1f, 1f })
+                Block("Moulding", "Wood", new Vector3(0.43f * s, 0f, 0.01f), new Vector3(0.05f, 0.5f, 0.07f), default, 2f, board);
+            Block("Crest", "Wood", new Vector3(0, 0.33f, 0.02f), new Vector3(0.36f, 0.1f, 0.05f), new Vector3(0, 0, 0), 2f, board);
+            Block("CrestCross", "Wood", new Vector3(0, 0.46f, 0.02f), new Vector3(0.05f, 0.18f, 0.04f), default, 2f, board);
+            Block("CrestCross", "Wood", new Vector3(0, 0.48f, 0.02f), new Vector3(0.13f, 0.04f, 0.04f), default, 2f, board);
             var digits = new MeshBuilder { FaceShade = false };
             digits.Quad(new Vector3(-0.33f, -0.1f, 0f), new Vector3(0.66f, 0f, 0f), new Vector3(0f, 0.22f, 0f), 1f / 0.66f);
             _displayDigits = Place("DisplayDigits", digits, "DisplayDigits", Vector3.zero, default, board).GetComponent<Renderer>();
@@ -261,10 +275,15 @@ namespace GJ.PSX.EditorTools
                 grit.Box(at, new Vector3(s, s * 0.6f, s), 4f);
             }
             Place("Grit", grit, "Stone", Vector3.zero, default, g);
-            var hole = new MeshBuilder { FaceShade = false };
-            hole.Quad(new Vector3(-1.4f, RoomMax.y - 0.01f, 0.05f), new Vector3(0f, 0f, 1.4f), new Vector3(2.8f, 0f, 0f), 1f);
-            Place("CeilingHole", hole, "Rubber", Vector3.zero, default, g);
-            Dust(new Vector3(0f, 1.6f, 0.9f), new Vector3(3f, 2.8f, 1.2f), 25, g);
+            CeilingBreak(g, new Vector3(-0.2f, RoomMax.y, 0.75f), 1.15f, 401);
+            CeilingBreak(g, new Vector3(1.35f, RoomMax.y, 1.7f), 0.6f, 402);
+            CeilingBreak(g, new Vector3(-1.6f, RoomMax.y, 1.5f), 0.45f, 403);
+            // A beam that came down with it, one end still up in the hole.
+            Block("FallenBeam", "Wood", new Vector3(-0.5f, 2.9f, 0.85f), new Vector3(0.18f, 0.18f, 4.2f), new Vector3(-62f, 18f, 0f), 2f, g);
+            // Cold light down through the breach, and grit still trickling.
+            PointLight("BreachLight", new Vector3(-0.2f, RoomMax.y - 0.4f, 0.9f), new Color(0.55f, 0.62f, 0.85f), 5f, 1.4f);
+            Dust(new Vector3(-0.2f, 2.6f, 0.75f), new Vector3(1.2f, 4.2f, 0.9f), 30, g);
+            Dust(new Vector3(0f, 1.6f, 0.9f), new Vector3(3f, 2.8f, 1.2f), 20, g);
         }
 
         // What the far door opens on: the night behind the chapel. Wet grass, a flagged path out to a lamp post, the
@@ -303,15 +322,16 @@ namespace GJ.PSX.EditorTools
             // Moonlight on the step outside, so the open door shows the night and not a black hole.
             PointLight("DoorMoon", new Vector3(0.5f, 3.5f, RoomMax.z + 3.5f), new Color(0.55f, 0.65f, 0.95f), 10f, 2.2f);
             var pines = new MeshBuilder();
-            for (int i = 0; i < 40; i++)
+            var pinesLight = new MeshBuilder();
+            var trunks = new MeshBuilder();
+            for (int i = 0; i < 46; i++)
             {
-                var p = new Vector3((Hash(i, 0, 328) - 0.5f) * 60f, 0f, RoomMax.z + 26f + Hash(i, 1, 329) * 20f);
-                float h = 7f + Hash(i, 2, 330) * 7f;
-                pines.Tube(p, p + Vector3.up * h * 0.25f, 0.18f, 0.14f, 5, Vector3.forward, 1f);
-                for (int k = 0; k < 3; k++)
-                    pines.Tube(p + Vector3.up * h * (0.2f + k * 0.25f), p + Vector3.up * h * (0.55f + k * 0.22f), h * (0.24f - k * 0.06f), 0.02f, 7, Vector3.forward, 0.5f);
+                var p = new Vector3((Hash(i, 0, 328) - 0.5f) * 60f, 0f, RoomMax.z + 22f + Hash(i, 1, 329) * 24f);
+                PineTree(Hash(i, 3, 331) > 0.6f ? pinesLight : pines, trunks, p, 7f + Hash(i, 2, 330) * 7f, i + 500);
             }
             Place("Pines", pines, "Pine", Vector3.zero, default, g);
+            Place("PinesLight", pinesLight, "PineLight", Vector3.zero, default, g);
+            Place("Trunks", trunks, "Wood", Vector3.zero, default, g);
             var moon = new MeshBuilder();
             moon.Card(new Vector3(-12f, 13f, RoomMax.z + 60f), new Vector3(8f, 0f, 0f), new Vector3(0f, 8f, 0f));
             Place("Moon", moon, "MoonGlow", Vector3.zero, default, g);
@@ -368,26 +388,7 @@ namespace GJ.PSX.EditorTools
                     Place("Halo", halo, "FlameHalo", new Vector3(x, 2.4f, z), default, chapel);
                 }
 
-            // A rack of votive candles by the left wall near the altar, three steps of them.
-            var rack = Group("VotiveRack", new Vector3(RoomMin.x + 0.45f, 0f, 12.2f), 90f, chapel);
-            for (int step = 0; step < 3; step++)
-            {
-                Block("Step", "DarkMetal", new Vector3(0f, 0.75f + step * 0.12f, -0.12f + step * 0.12f), new Vector3(1.0f, 0.03f, 0.14f), default, 4f, rack);
-                for (int i = 0; i < 6; i++)
-                {
-                    var at = new Vector3(-0.42f + i * 0.17f, 0.78f + step * 0.12f, -0.12f + step * 0.12f);
-                    Cyl("Votive", "Paper", at, 0.022f, 0.05f, 6, default, 8f, rack);
-                    if ((i + step) % 4 == 3) continue;   // a few gone out
-                    var flame = new MeshBuilder();
-                    flame.Cross(Vector3.zero, 0.02f, 0.04f);
-                    Place("Flame", flame, "Flame", at + Vector3.up * 0.08f, default, rack);
-                }
-            }
-            foreach (float x in new[] { -0.45f, 0.45f })
-                Block("RackLeg", "DarkMetal", new Vector3(x, 0.38f, 0f), new Vector3(0.03f, 0.76f, 0.03f), default, 4f, rack);
-            var votiveHalo = new MeshBuilder();
-            votiveHalo.Cross(Vector3.zero, 1.2f, 0.8f);
-            Place("Halo", votiveHalo, "FlameHalo", new Vector3(0f, 1.0f, 0f), default, rack);
+            VotiveStand(new Vector3(-1.75f, 0f, 12.55f), -18f, chapel);
 
             // The font by the way in: a stone bowl on a pillar.
             Cyl("FontFoot", "Concrete", new Vector3(-1.4f, 0f, 1.6f), 0.2f, 0.85f, 8, default, 2f, chapel, true);
@@ -397,6 +398,102 @@ namespace GJ.PSX.EditorTools
             var water = new MeshBuilder { FaceShade = false };
             water.Cylinder(new Vector3(-1.4f, 0.96f, 1.6f), 0.27f, 0.004f, 10, 1f);
             Place("FontWater", water, "SightWater", Vector3.zero, default, chapel);
+        }
+
+        // A wrought-iron stand of votive candles before the altar rail, facing the nave: four legs and a cross brace, three
+        // stepped trays of sand rising to the back, thin candles stuck in them at all heights, most burning, wax run down
+        // their sides, an offering box on the side.
+        static void VotiveStand(Vector3 at, float yaw, Transform parent)
+        {
+            var g = Group("VotiveStand", at, yaw, parent);
+            foreach (float x in new[] { -0.46f, 0.46f })
+                foreach (float z in new[] { -0.2f, 0.22f })
+                {
+                    Block("Leg", "DarkMetal", new Vector3(x, 0.44f, z), new Vector3(0.03f, 0.88f, 0.03f), default, 4f, g);
+                    Cyl("Foot", "DarkMetal", new Vector3(x, 0f, z), 0.035f, 0.025f, 6, default, 4f, g);
+                }
+            Block("Brace", "DarkMetal", new Vector3(0f, 0.25f, 0.01f), new Vector3(0.92f, 0.025f, 0.025f), default, 4f, g);
+            foreach (float x in new[] { -0.46f, 0.46f })
+                Block("Brace", "DarkMetal", new Vector3(x, 0.25f, 0.01f), new Vector3(0.025f, 0.025f, 0.42f), default, 4f, g);
+            int candle = 0;
+            for (int tier = 0; tier < 3; tier++)
+            {
+                float y = 0.88f + tier * 0.13f, z = -0.15f + tier * 0.15f;
+                Block("Tray", "DarkMetal", new Vector3(0f, y, z), new Vector3(1.02f, 0.05f, 0.16f), default, 4f, g);
+                Block("Lip", "Copper", new Vector3(0f, y + 0.035f, z - 0.075f), new Vector3(1.04f, 0.03f, 0.012f), default, 4f, g);
+                Block("Sand", "Sand", new Vector3(0f, y + 0.027f, z), new Vector3(0.98f, 0.012f, 0.13f), default, 8f, g);
+                if (tier > 0) Block("Riser", "DarkMetal", new Vector3(0f, y - 0.065f, z - 0.075f), new Vector3(1.02f, 0.08f, 0.012f), default, 4f, g);
+                int n = 7 - tier;
+                for (int i = 0; i < n; i++, candle++)
+                {
+                    float x = -0.42f + (i + 0.5f) / n * 0.84f + (Hash(candle, 0, 360) - 0.5f) * 0.06f;
+                    float h = 0.05f + Hash(candle, 1, 361) * 0.12f;
+                    var c = new Vector3(x, y + 0.03f, z + (Hash(candle, 2, 362) - 0.5f) * 0.05f);
+                    Cyl("Candle", "Paper", c, 0.011f, h, 6, default, 8f, g);
+                    // A run of wax down one side.
+                    Block("Drip", "Paper", c + new Vector3(0.011f, h * 0.55f, 0f), new Vector3(0.006f, h * 0.5f, 0.008f), default, 8f, g);
+                    if (Hash(candle, 3, 363) < 0.2f) continue;   // gone out
+                    var flame = new MeshBuilder();
+                    flame.Cross(Vector3.zero, 0.018f, 0.04f);
+                    Place("Flame", flame, "Flame", c + Vector3.up * (h + 0.022f), default, g);
+                }
+            }
+            // The offering box on the right leg, with its slot.
+            Block("OfferingBox", "Wood", new Vector3(0.6f, 0.95f, -0.05f), new Vector3(0.16f, 0.2f, 0.14f), default, 4f, g);
+            Block("Slot", "DarkMetal", new Vector3(0.6f, 1.055f, -0.05f), new Vector3(0.08f, 0.005f, 0.015f), default, 8f, g);
+            Block("Bracket", "DarkMetal", new Vector3(0.53f, 0.95f, -0.05f), new Vector3(0.04f, 0.04f, 0.04f), default, 4f, g);
+            var halo = new MeshBuilder();
+            halo.Cross(Vector3.zero, 1.4f, 0.9f);
+            Place("Halo", halo, "FlameHalo", new Vector3(0f, 1.15f, 0f), default, g);
+            var light = PointLight("VotiveLight", Vector3.zero, new Color(1f, 0.7f, 0.42f), 3.2f, 1.3f);
+            light.transform.SetParent(g, false);
+            light.transform.localPosition = new Vector3(0f, 1.3f, -0.1f);
+        }
+
+        // A hole torn in the ceiling: a ragged patch of black where it opened onto nothing, broken slabs hanging from its
+        // edge at all angles, and bent rods of rebar dangling.
+        static void CeilingBreak(Transform parent, Vector3 center, float radius, int seed)
+        {
+            var g = new GameObject("CeilingBreak").transform;
+            g.SetParent(parent, false);
+            g.localPosition = center;
+            var dark = new MeshBuilder { FaceShade = false };
+            for (int i = 0; i < 9; i++)
+            {
+                float ang = Hash(i, 0, seed) * 360f, r = radius * (0.25f + Hash(i, 1, seed) * 0.55f);
+                float size = radius * (0.55f + Hash(i, 2, seed) * 0.6f);
+                var off = new Vector3(Mathf.Cos(ang * Mathf.Deg2Rad) * r, 0f, Mathf.Sin(ang * Mathf.Deg2Rad) * r);
+                dark.M = Matrix4x4.TRS(off + Vector3.down * (0.012f + i * 0.0015f), Quaternion.Euler(0f, Hash(i, 3, seed) * 90f, 0f), Vector3.one);
+                dark.Quad(new Vector3(-size * 0.5f, 0f, size * 0.5f), new Vector3(size, 0f, 0f), new Vector3(0f, 0f, -size), 1f);
+            }
+            dark.M = Matrix4x4.identity;
+            Place("Hole", dark, "Void", Vector3.zero, default, g);
+            var slabs = new MeshBuilder();
+            int pieces = Mathf.RoundToInt(5 + radius * 5f);
+            for (int i = 0; i < pieces; i++)
+            {
+                float ang = i / (float)pieces * Mathf.PI * 2f + Hash(i, 4, seed);
+                float r = radius * (0.85f + Hash(i, 5, seed) * 0.35f);
+                float size = 0.18f + Hash(i, 6, seed) * radius * 0.4f;
+                var at = new Vector3(Mathf.Cos(ang) * r, -0.06f - Hash(i, 7, seed) * 0.15f, Mathf.Sin(ang) * r);
+                // Tipped down into the hole, hinged on the edge it still hangs from.
+                var tilt = Quaternion.LookRotation(new Vector3(-Mathf.Cos(ang), 0f, -Mathf.Sin(ang))) * Quaternion.Euler(35f + Hash(i, 8, seed) * 40f, 0f, (Hash(i, 9, seed) - 0.5f) * 30f);
+                slabs.M = Matrix4x4.TRS(at, tilt, Vector3.one);
+                slabs.ChamferBox(new Vector3(0f, 0f, size * 0.4f), new Vector3(size, 0.07f, size * 0.8f), 0.015f, 2f);
+            }
+            slabs.M = Matrix4x4.identity;
+            Place("Slabs", slabs, "Concrete", Vector3.zero, default, g);
+            var rebar = new MeshBuilder();
+            for (int i = 0; i < 6; i++)
+            {
+                float ang = Hash(i, 10, seed) * Mathf.PI * 2f, r = radius * (0.7f + Hash(i, 11, seed) * 0.3f);
+                var top = new Vector3(Mathf.Cos(ang) * r, -0.02f, Mathf.Sin(ang) * r);
+                var bend = top + new Vector3(-Mathf.Cos(ang) * 0.15f, -0.25f - Hash(i, 12, seed) * 0.3f, -Mathf.Sin(ang) * 0.15f);
+                var tip = bend + new Vector3((Hash(i, 13, seed) - 0.5f) * 0.3f, -0.15f - Hash(i, 14, seed) * 0.35f, (Hash(i, 15, seed) - 0.5f) * 0.3f);
+                rebar.Tube(top, bend, 0.008f, 0.008f, 4, Vector3.forward, 8f);
+                rebar.Tube(bend, tip, 0.008f, 0.007f, 4, Vector3.forward, 8f);
+            }
+            Place("Rebar", rebar, "Rust", Vector3.zero, default, g);
         }
 
         // What lies about: two boxes of rounds and a revolver on the altar.
