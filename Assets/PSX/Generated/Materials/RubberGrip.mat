@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: HeldGripWood
+  m_Name: RubberGrip
   m_Shader: {fileID: 4800000, guid: 2b48ed2890e934746b8ff55a63ef9a0e, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -24,7 +24,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: 9788083b3b6b52c48a088e4e456bb5b2, type: 3}
+        m_Texture: {fileID: 2800000, guid: c721f0b11201d88408582a844b1b3a25, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
@@ -35,7 +35,7 @@ Material:
     - _SnapResolution: 180
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
-    - _EmissionColor: {r: 0.12, g: 0.045, b: 0.03, a: 1}
+    - _EmissionColor: {r: 0.01, g: 0.01, b: 0.01, a: 1}
     - _Tiling: {r: 1, g: 1, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
