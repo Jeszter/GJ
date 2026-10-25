@@ -3,17 +3,18 @@ using UnityEngine.InputSystem;
 
 namespace GJ.Game
 {
-    // The graveyard behind the chapel, at night: the figure in the robe let go of you here, and now it wants you in the
-    // ground. Your breaths are what you have left to take: a blow knocks one out of you, the last one and it is one
-    // more time. Fists (the lighter balled in one), or the revolver if you find where it fell in the grass. Put the
-    // figure down and the cemetery gate swings open on the dawn.
+    // The graveyard behind the chapel, at night: the figure in the robe knocked your revolver out of your hand and
+    // dragged you here, and now it wants you in the ground. Your breaths are what you have left to take: a blow knocks
+    // one out of you, the last one and it is one more time. Bare fists only rock it back a step; the revolver lying out
+    // in the grass is the only thing that will kill it. Get to it, shoot, and the cemetery gate opens on the dawn.
     public class GraveyardPuzzle : RoomPuzzle
     {
         public RobedFigure figure;
-        public GameObject lostGun;           // where the revolver landed, if it was knocked out of your hand
+        public GameObject lostGun;           // where the revolver landed when it was knocked out of your hand
         public Transform lostGunPoint;
         public float punchRange = 1.7f;
-        public AudioClip punchClip, swishClip, takeClip;
+        public int roundsAtLeast = 3;        // picked up with at least this many: the fight can't be lost to an empty cylinder
+        public AudioClip punchClip, swishClip, takeClip, drawClip;
         public Color dawnFog = new Color(0.32f, 0.3f, 0.36f), dawnAmbient = new Color(0.42f, 0.38f, 0.42f);
 
         bool _won;
@@ -31,45 +32,97 @@ namespace GJ.Game
         {
             _fog = RenderSettings.fogColor;
             _ambient = RenderSettings.ambientLight;
-            if (lostGun != null) lostGun.SetActive(GameSession.GunInGraveyard);
+            figure.health = 2;
             figure.Struck = _ => Director.KnockBreath("the figure in the robe put you in the ground.");
             figure.Died = Won;
-            // A round from the revolver takes it harder than a fist.
+            // Only a round hurts it.
             var target = figure.GetComponent<Shootable>();
-            if (target != null) target.Shot += _ => figure.Hit(3, Director.Head.position);
+            if (target != null) target.Shot += _ => figure.Hit(1, Director.Head.position);
         }
 
         public override void Arrived(string cameFrom)
         {
-            Director.startMessage = GameSession.GunInGraveyard
-                ? "it let go of you in the graveyard\n<size=10>[LMB] fight. your revolver fell somewhere in the grass</size>"
-                : "it let go of you in the graveyard\n<size=10>[LMB] fight</size>";
-            StartCoroutine(GetUp());
+            Director.startMessage = "";
+            // However you got here, the revolver is out in the grass, and the hand is bare: nothing in it but a fist.
+            if (Director.Gun != null && Director.Gun.Owned) Director.Gun.TakeAway();
+            GameSession.GunInGraveyard = true;
+            if (lostGun != null) lostGun.SetActive(true);
+            Director.BareHands();
+            StartCoroutine(Intro());
         }
 
-        // Thrown down on the grass: the view starts at the ground, black clearing, and climbs back up to standing
-        // before the figure comes on.
-        System.Collections.IEnumerator GetUp()
+        // Thrown down on the grass: the view starts at the ground and climbs back up to standing. Your revolver lies
+        // out there in the grass; the figure turns from it to you and draws a blade as long as your arm.
+        System.Collections.IEnumerator Intro()
         {
             var body = Director.Controller;
             var head = Director.Head;
             body.canMove = false;
+            GJ.PSX.FirstPersonController.Frozen = true;
             Director.ScreenFlash(new Color(0f, 0f, 0f, 1f), 1.4f);
             Vector3 rest = head.localPosition, low = rest + Vector3.down * 1.3f;
+            Vector3 gunAt = lostGunPoint.position;
             for (float t = 0f; t < 0.6f; t += Time.deltaTime)
             {
                 head.localPosition = low;
+                Watch(head, figure.eyes.position, 20f);
                 yield return null;
             }
             for (float t = 0f; t < 1.3f; t += Time.deltaTime)
             {
                 float k = Mathf.SmoothStep(0f, 1f, t / 1.3f);
                 head.localPosition = Vector3.Lerp(low, rest, k) + Vector3.right * Mathf.Sin(t * 7f) * 0.03f * (1f - k);
+                Watch(head, figure.eyes.position, 5f);
                 yield return null;
             }
             head.localPosition = rest;
+
+            // Your revolver, out in the grass where it fell.
+            for (float t = 0f; t < 1.4f; t += Time.deltaTime)
+            {
+                Watch(head, gunAt, 5f);
+                yield return null;
+            }
+            Say("your revolver");
+
+            // Back to the figure: it turns to you and draws the blade.
+            Quaternion face = Quaternion.LookRotation(Flat(body.transform.position - figure.transform.position));
+            Quaternion from = figure.transform.rotation;
+            for (float t = 0f; t < 0.7f; t += Time.deltaTime)
+            {
+                figure.transform.rotation = Quaternion.Slerp(from, face, t / 0.7f);
+                Watch(head, figure.eyes.position, 6f);
+                yield return null;
+            }
+            figure.transform.rotation = face;
+            figure.Armed = true;
+            figure.Show(figure.strike);
+            if (drawClip != null) AudioSource.PlayClipAtPoint(drawClip, figure.transform.position + Vector3.up * 1.4f, 1f);
+            Director.ScreenFlash(new Color(0.5f, 0f, 0f, 0.35f), 0.5f);
+            for (float t = 0f; t < 0.7f; t += Time.deltaTime)
+            {
+                Watch(head, figure.eyes.position, 8f);
+                yield return null;
+            }
+            figure.Show(figure.idle);
+            Say("get to the revolver\n<size=10>fists only hold it off. [LMB] punch</size>");
+
+            // Hand the view back looking where the head ended up.
+            var e = head.rotation.eulerAngles;
+            body.SetLook(e.y, e.x > 180f ? e.x - 360f : e.x);
+            head.localRotation = Quaternion.Euler(e.x > 180f ? e.x - 360f : e.x, 0f, 0f);
+            GJ.PSX.FirstPersonController.Frozen = false;
             body.canMove = true;
             figure.Engage(body.transform);
+        }
+
+        static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude > 0.0001f ? v : Vector3.forward; }
+
+        // The view held on something during the intro (and the mouse kept off it: the flow frees it when play starts).
+        static void Watch(Transform head, Vector3 point, float speed)
+        {
+            GJ.PSX.FirstPersonController.Frozen = true;
+            head.rotation = Quaternion.Slerp(head.rotation, Quaternion.LookRotation(point - head.position), 1f - Mathf.Exp(-speed * Time.deltaTime));
         }
 
         public override Option? Look(Vector3 eye, Vector3 forward, bool lit)
@@ -84,8 +137,8 @@ namespace GJ.Game
             lostGun.SetActive(false);
             GameSession.GunInGraveyard = false;
             if (takeClip != null) AudioSource.PlayClipAtPoint(takeClip, lostGunPoint.position, 0.8f);
-            Director.Gun?.Give(GameSession.Rounds);
-            Say("your revolver. " + GameSession.Rounds + " rounds left in it");
+            Director.Gun?.Give(Mathf.Max(GameSession.Rounds, roundsAtLeast));
+            Say("your revolver. " + GameSession.Rounds + " rounds\n<size=10>[LMB] shoot it</size>");
         }
 
         void Update()
@@ -100,7 +153,7 @@ namespace GJ.Game
             }
             if (Director == null || !Director.Alive || FirstPersonPaused()) return;
 
-            // Fists, with the revolver away: a jab with the lighter balled in the hand.
+            // Bare fists, with the revolver not in hand: they rock it back a step, no more.
             var gun = Director.Gun;
             var mouse = Mouse.current;
             bool armed = gun != null && gun.Drawn;
@@ -112,7 +165,7 @@ namespace GJ.Game
                 bool hit = !figure.Dead && to.magnitude < punchRange + 0.4f && Vector3.Angle(Director.Head.forward, to) < 35f;
                 if (hit)
                 {
-                    figure.Hit(1, Director.Controller.transform.position);
+                    figure.Hit(0, Director.Controller.transform.position);
                     if (punchClip != null) AudioSource.PlayClipAtPoint(punchClip, figure.transform.position + Vector3.up * 1.3f, 1f);
                 }
                 else if (swishClip != null) AudioSource.PlayClipAtPoint(swishClip, Director.Head.position, 0.4f);

@@ -35,6 +35,12 @@ namespace GJ.PSX.EditorTools
             RoomMax = new Vector3(4f, 5f, 18f);
             var scene = NewRoomScene("Chapel");
             BuildShell(new[] { 4.5f, 9f, 13.5f });
+            // No corridor of white light behind this door: it opens on the night (ChapelOutside).
+            foreach (var n in new[] { "Corridor", "ExitGlow", "ExitLight" })
+            {
+                var stale = GameObject.Find(n);
+                if (stale != null) Object.DestroyImmediate(stale);
+            }
 
             var chapel = new GameObject("Nave").transform;
             chapel.SetParent(_world, false);
@@ -54,6 +60,7 @@ namespace GJ.PSX.EditorTools
             _displayDigits = Place("DisplayDigits", digits, "DisplayDigits", Vector3.zero, default, board).GetComponent<Renderer>();
 
             AutoColliders(_world);
+            ChapelOutside(chapel);
             // Beyond the door, waiting: the figure in the robe (after the auto colliders: it has its own capsule).
             puzzle.figure = RobedFigure(_world, new Vector3(0f, 0f, RoomMax.z + 2.6f), 180f);
             var doorway = new GameObject("Doorway").transform;
@@ -69,7 +76,7 @@ namespace GJ.PSX.EditorTools
             life.SetParent(_world, false);
             Dust(new Vector3(0f, 2.4f, 9f), new Vector3(7f, 4f, 17f), 90, life);
 
-            var rig = BuildPlayer(new Vector3(0f, 0f, 1.0f), 0f);
+            var rig = BuildPlayer(new Vector3(0f, 0f, 2.0f), 0f);
             BuildDirector(rig, puzzle, 0, "THE MINERS' CHAPEL", 0, "");
             UnityEngine.Object.FindFirstObjectByType<Game.RoomDirector>().revolver = BuildRevolver(rig);
 
@@ -98,7 +105,9 @@ namespace GJ.PSX.EditorTools
             var leaf = new GameObject("Leaf").transform;
             leaf.SetParent(door, false);
             leaf.localPosition = new Vector3(-DoorHalfWidth, 0f, -0.08f);
-            Block("Planks", "Wood", new Vector3(DoorHalfWidth, 1.2f, 0f), new Vector3(1.8f, 2.4f, 0.1f), default, 1f, leaf, true);
+            var planks = Block("Planks", "Wood", new Vector3(DoorHalfWidth, 1.2f, 0f), new Vector3(1.8f, 2.4f, 0.1f), default, 1f, leaf, true);
+            // A round anywhere into the door splinters the hasp: at PS1 resolution the lock alone is a few pixels.
+            puzzle.doorTarget = planks.AddComponent<Game.Shootable>();
             foreach (float y in new[] { 0.4f, 1.2f, 2.0f })
                 Block("Strap", "DarkMetal", new Vector3(0.7f, y, -0.06f), new Vector3(1.3f, 0.08f, 0.02f), default, 4f, leaf);
             Block("Ring", "DarkMetal", new Vector3(1.55f, 1.1f, -0.08f), new Vector3(0.1f, 0.1f, 0.02f), default, 4f, leaf);
@@ -108,7 +117,10 @@ namespace GJ.PSX.EditorTools
             var padlock = Block("Padlock", "Steel", new Vector3(0.05f, 1.14f, -0.22f), new Vector3(0.11f, 0.13f, 0.05f), default, 8f, door);
             Block("Shackle", "Chrome", new Vector3(0.05f, 1.23f, -0.22f), new Vector3(0.07f, 0.06f, 0.015f), default, 8f, padlock.transform)
                 .transform.localPosition = new Vector3(0f, 0.09f, 0f);
-            padlock.AddComponent<BoxCollider>().size = new Vector3(0.22f, 0.26f, 0.12f);
+            padlock.AddComponent<BoxCollider>().size = new Vector3(0.32f, 0.34f, 0.16f);
+            // The chain takes a round as well as the lock does.
+            chain.AddComponent<BoxCollider>().size = new Vector3(1.9f, 0.1f, 0.1f);
+            puzzle.chainTarget = chain.AddComponent<Game.Shootable>();
             puzzle.padlock = padlock.AddComponent<Game.Shootable>();
             puzzle.padlockPiece = padlock;
             puzzle.chain = chain;
@@ -129,9 +141,10 @@ namespace GJ.PSX.EditorTools
                 {
                     var pew = Group("Pew", new Vector3(2.2f * side, 0f, z), 0f, chapel);
                     Block("Seat", "Wood", new Vector3(0, 0.45f, 0), new Vector3(2.4f, 0.06f, 0.42f), default, 2f, pew);
-                    Block("Back", "Wood", new Vector3(0, 0.78f, 0.2f), new Vector3(2.4f, 0.55f, 0.05f), new Vector3(-8, 0, 0), 2f, pew);
+                    // Facing the altar: the back rest behind whoever sits, toward the way in.
+                    Block("Back", "Wood", new Vector3(0, 0.78f, -0.2f), new Vector3(2.4f, 0.55f, 0.05f), new Vector3(-8, 0, 0), 2f, pew);
                     foreach (float x in new[] { -1.17f, 1.17f })
-                        Block("End", "Wood", new Vector3(x, 0.48f, 0.05f), new Vector3(0.06f, 0.96f, 0.5f), default, 2f, pew);
+                        Block("End", "Wood", new Vector3(x, 0.48f, -0.05f), new Vector3(0.06f, 0.96f, 0.5f), default, 2f, pew);
                 }
             }
 
@@ -194,10 +207,121 @@ namespace GJ.PSX.EditorTools
             }
 
             ChapelDressing(chapel);
+            ChapelEntrance(chapel);
 
             var note = Plate("Note_Chapel", "NoteDiary", new Vector3(-0.45f, 1.022f, 14.9f), 0.2f, 0.26f, Vector3.up, chapel, -6f);
             note.AddComponent<Game.ReadableNote>().text = NoteChapel;
             Helmet(new Vector3(-3.2f, 0f, 2.0f), 140f, chapel);
+        }
+
+        // The way you came in, behind you at the start: a pair of plank doors in a stone frame with the corridor's stencil
+        // over them, buried to the lintel: the roof came down behind you, rocks and a slab and two beams across them.
+        static void ChapelEntrance(Transform chapel)
+        {
+            var g = Group("Entrance", new Vector3(0f, 0f, 0f), 0f, chapel);
+            Block("Frame_Top", "Concrete", new Vector3(0f, 2.55f, 0.12f), new Vector3(2.4f, 0.3f, 0.24f), default, 1f, g, true);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Block("Frame_Side", "Concrete", new Vector3(1.05f * s, 1.2f, 0.12f), new Vector3(0.3f, 2.4f, 0.24f), default, 1f, g, true);
+                Block("Leaf", "Wood", new Vector3(0.45f * s, 1.2f, 0.05f), new Vector3(0.88f, 2.38f, 0.08f), default, 1f, g, true);
+                foreach (float y in new[] { 0.45f, 1.95f })
+                    Block("Strap", "DarkMetal", new Vector3(0.45f * s, y, 0.1f), new Vector3(0.8f, 0.07f, 0.015f), default, 4f, g);
+                Cyl("Ring", "DarkMetal", new Vector3(0.12f * s, 1.15f, 0.1f), 0.05f, 0.015f, 8, new Vector3(90, 0, 0), 4f, g);
+            }
+            Block("Seam", "Rubber", new Vector3(0f, 1.2f, 0.095f), new Vector3(0.02f, 2.38f, 0.005f), default, 4f, g);
+            Plate("Sign_Sector", "SignSector", new Vector3(0f, 2.95f, 0.012f), 1.0f, 0.25f, Vector3.forward, g, 4f);
+
+            // The heap: rocks piled highest against the doors and spilling out onto the floor.
+            var rocks = new MeshBuilder();
+            for (int i = 0; i < 95; i++)
+            {
+                float x = (Hash(i, 0, 301) - 0.5f) * 3.4f;
+                float z = 0.08f + Hash(i, 1, 302) * 1.0f;
+                float top = Mathf.Max(0.15f, 2.75f * (1f - z / 1.15f) * (1f - Mathf.Abs(x) / 2.3f));
+                float y = Hash(i, 2, 303) * top;
+                float s = 0.18f + Hash(i, 3, 304) * 0.3f;
+                rocks.M = Matrix4x4.TRS(new Vector3(x, y, z), Quaternion.Euler(Hash(i, 4, 305) * 90f, Hash(i, 5, 306) * 180f, Hash(i, 6, 307) * 90f), Vector3.one);
+                rocks.ChamferBox(Vector3.zero, new Vector3(s, s * (0.6f + Hash(i, 7, 308) * 0.5f), s * (0.7f + Hash(i, 8, 309) * 0.4f)), s * 0.2f, 2f);
+            }
+            rocks.M = Matrix4x4.identity;
+            var heap = Place("Rubble", rocks, "Stone", Vector3.zero, default, g);
+            var block = heap.AddComponent<BoxCollider>();
+            block.center = new Vector3(0f, 1.0f, 0.35f);
+            block.size = new Vector3(3.4f, 2.0f, 0.7f);
+            Block("FallenSlab", "Concrete", new Vector3(0.5f, 1.3f, 0.55f), new Vector3(1.6f, 0.16f, 1.0f), new Vector3(-48f, 12f, 8f), 1f, g);
+            Block("Beam", "Wood", new Vector3(-0.2f, 1.35f, 0.45f), new Vector3(0.16f, 0.16f, 3.0f), new Vector3(0f, 78f, 38f), 2f, g);
+            Block("Beam", "Wood", new Vector3(0.4f, 0.9f, 0.7f), new Vector3(0.14f, 0.14f, 2.4f), new Vector3(-12f, -62f, -25f), 2f, g);
+            // Grit and pebbles spread out a step further, and a dark hole in the ceiling above where it came from.
+            var grit = new MeshBuilder();
+            for (int i = 0; i < 40; i++)
+            {
+                var at = new Vector3((Hash(i, 0, 311) - 0.5f) * 4f, 0.02f, 1.0f + Hash(i, 1, 312) * 1.0f);
+                float s = 0.04f + Hash(i, 2, 313) * 0.08f;
+                grit.Box(at, new Vector3(s, s * 0.6f, s), 4f);
+            }
+            Place("Grit", grit, "Stone", Vector3.zero, default, g);
+            var hole = new MeshBuilder { FaceShade = false };
+            hole.Quad(new Vector3(-1.4f, RoomMax.y - 0.01f, 0.05f), new Vector3(0f, 0f, 1.4f), new Vector3(2.8f, 0f, 0f), 1f);
+            Place("CeilingHole", hole, "Rubber", Vector3.zero, default, g);
+            Dust(new Vector3(0f, 1.6f, 0.9f), new Vector3(3f, 2.8f, 1.2f), 25, g);
+        }
+
+        // What the far door opens on: the night behind the chapel. Wet grass, a flagged path out to a lamp post, the
+        // first crooked graves of the yard, ground mist, pines black against a fogged moon. Built after the auto
+        // colliders; only the ground under the door can be stood on.
+        static void ChapelOutside(Transform chapel)
+        {
+            var g = Group("Outside", Vector3.zero, 0f, chapel);
+            var ground = new MeshBuilder { FaceShade = false };
+            ground.Quad(new Vector3(-20f, -0.01f, RoomMax.z), new Vector3(40f, 0f, 0f), new Vector3(0f, 0f, 40f), 0.4f, 2f);
+            Place("Ground", ground, "Grass", Vector3.zero, default, g, true);
+            for (int i = 0; i < 8; i++)
+                Block("Flag", "Concrete", new Vector3((Hash(i, 0, 321) - 0.5f) * 0.25f, 0.01f, RoomMax.z + 0.8f + i * 1.1f), new Vector3(0.9f, 0.03f, 0.75f), new Vector3(0f, (Hash(i, 1, 322) - 0.5f) * 14f, 0f), 1f, g);
+            for (int i = 0; i < 26; i++)
+            {
+                float x = (Hash(i, 0, 323) - 0.5f) * 26f;
+                float z = RoomMax.z + 4f + Hash(i, 1, 324) * 22f;
+                if (Mathf.Abs(x) < 1.8f) continue;
+                var grave = Group("Grave", new Vector3(x, 0f, z), (Hash(i, 2, 325) - 0.5f) * 20f, g);
+                float lean = (Hash(i, 3, 326) - 0.5f) * 24f;
+                if (Hash(i, 4, 327) > 0.45f)
+                {
+                    Block("Stone", "Concrete", new Vector3(0f, 0.45f, 0f), new Vector3(0.62f, 0.9f, 0.13f), new Vector3(lean, 0, 0), 1f, grave);
+                    Cyl("Top", "Concrete", new Vector3(-0.31f, 0.9f, 0f), 0.31f, 0.13f, 8, new Vector3(lean, 0, -90), 1f, grave);
+                }
+                else
+                {
+                    Block("Cross", "Wood", new Vector3(0f, 0.65f, 0f), new Vector3(0.1f, 1.3f, 0.1f), new Vector3(lean, 0, 0), 2f, grave);
+                    Block("CrossBar", "Wood", new Vector3(0f, 1.0f, 0f), new Vector3(0.58f, 0.09f, 0.09f), new Vector3(lean, 0, 0), 2f, grave);
+                }
+                Block("Mound", "Grass", new Vector3(0f, 0.05f, -0.8f), new Vector3(0.85f, 0.12f, 1.55f), default, 1f, grave);
+            }
+            Lantern(new Vector3(-1.5f, 0f, RoomMax.z + 5f), g);
+            PointLight("LampLight", new Vector3(-1.1f, 2.45f, RoomMax.z + 5f), new Color(1f, 0.72f, 0.42f), 9f, 2.4f);
+            PointLight("Moonlight", new Vector3(3f, 7f, RoomMax.z + 12f), new Color(0.5f, 0.6f, 0.9f), 24f, 3f);
+            // Moonlight on the step outside, so the open door shows the night and not a black hole.
+            PointLight("DoorMoon", new Vector3(0.5f, 3.5f, RoomMax.z + 3.5f), new Color(0.55f, 0.65f, 0.95f), 10f, 2.2f);
+            var pines = new MeshBuilder();
+            for (int i = 0; i < 40; i++)
+            {
+                var p = new Vector3((Hash(i, 0, 328) - 0.5f) * 60f, 0f, RoomMax.z + 26f + Hash(i, 1, 329) * 20f);
+                float h = 7f + Hash(i, 2, 330) * 7f;
+                pines.Tube(p, p + Vector3.up * h * 0.25f, 0.18f, 0.14f, 5, Vector3.forward, 1f);
+                for (int k = 0; k < 3; k++)
+                    pines.Tube(p + Vector3.up * h * (0.2f + k * 0.25f), p + Vector3.up * h * (0.55f + k * 0.22f), h * (0.24f - k * 0.06f), 0.02f, 7, Vector3.forward, 0.5f);
+            }
+            Place("Pines", pines, "Pine", Vector3.zero, default, g);
+            var moon = new MeshBuilder();
+            moon.Card(new Vector3(-12f, 13f, RoomMax.z + 60f), new Vector3(8f, 0f, 0f), new Vector3(0f, 8f, 0f));
+            Place("Moon", moon, "MoonGlow", Vector3.zero, default, g);
+            var mist = new MeshBuilder { FaceShade = false };
+            for (int i = 0; i < 16; i++)
+            {
+                var c = new Vector3((Hash(i, 0, 331) - 0.5f) * 20f, 0.3f + Hash(i, 1, 332) * 0.4f, RoomMax.z + 3f + Hash(i, 2, 333) * 22f);
+                var u = Quaternion.Euler(0f, Hash(i, 3, 334) * 180f, 0f) * Vector3.right * (4f + Hash(i, 4, 335) * 4f);
+                mist.Card(c - u * 0.5f, u, Vector3.up * 1.2f);
+            }
+            Place("GroundMist", mist, "Steam", Vector3.zero, default, g);
         }
 
         // The finery: a runner up the aisle, a rail before the altar, banners and icons on the walls, a rack of votive

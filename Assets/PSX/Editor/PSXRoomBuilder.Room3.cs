@@ -146,9 +146,12 @@ namespace GJ.PSX.EditorTools
         {
             var root = new GameObject("Revolver").transform;
             root.SetParent(rig.head, false);
+            // Low in the right of the view and far enough out to read as a gun in a fist, the barrel turned in a
+            // touch toward the middle where the round goes.
+            root.localRotation = Quaternion.Euler(4f, -4f, 0f);
             var view = new GameObject("ViewModel").transform;
             view.SetParent(root, false);
-            view.localPosition = new Vector3(0.085f, -0.088f, 0.25f);
+            view.localPosition = new Vector3(0.12f, -0.13f, 0.34f);
             view.localRotation = Quaternion.identity;
             var gun = new GameObject("Gun").transform;
             gun.SetParent(view, false);
@@ -216,7 +219,8 @@ namespace GJ.PSX.EditorTools
             var go = new GameObject(name).transform;
             go.SetParent(parent, false);
             go.localPosition = top;
-            Block("Sand", "Sand", new Vector3(0, -length * 0.5f, 0), new Vector3(0.025f, length, 0.025f), default, 8f, go);
+            Block("Sand", "Sand", new Vector3(0, -length * 0.5f, 0), new Vector3(0.04f, length, 0.04f), default, 8f, go);
+            Block("Sand", "Sand", new Vector3(0, -length * 0.5f, 0), new Vector3(0.028f, length, 0.028f), new Vector3(0, 45, 0), 8f, go);
             return go;
         }
 

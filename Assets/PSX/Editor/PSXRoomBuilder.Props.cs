@@ -322,17 +322,26 @@ namespace GJ.PSX.EditorTools
             Block("Hazard", "Hazard", new Vector3(0, 0.45f, -0.285f), new Vector3(0.2f, 0.14f, 0.01f), default, 2f, g);
         }
 
+        // A mop leant against the wall: a long handle, a tin clamp, and a hank of grey strands hanging off it and
+        // spreading on the floor.
         static void Mop(Vector3 pos, float yaw, Transform parent)
         {
             var g = Group("Mop", pos, yaw, parent);
+            Vector3 foot = new Vector3(0f, 0.16f, 0f), top = new Vector3(0f, 1.45f, 0.3f);
             var mb = new MeshBuilder();
-            mb.Tube(new Vector3(0, 0.08f, 0), new Vector3(0, 1.35f, 0.25f), 0.014f, 0.014f, 6, Vector3.forward, 4f);
+            mb.Tube(foot, top, 0.016f, 0.014f, 6, Vector3.forward, 4f);
             Place("Handle", mb, "Wood", Vector3.zero, default, g);
+            Cyl("Clamp", "Steel", foot + new Vector3(0f, -0.04f, -0.008f), 0.03f, 0.07f, 7, new Vector3(-12f, 0f, 0f), 4f, g);
             var head = new MeshBuilder();
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < 16; i++)
             {
-                float a = i / 9f * Mathf.PI * 2f;
-                head.Tube(new Vector3(0, 0.1f, 0), new Vector3(Mathf.Cos(a) * 0.12f, 0.005f, Mathf.Sin(a) * 0.12f), 0.02f, 0.012f, 4, Vector3.up, 4f);
+                float a = i / 16f * Mathf.PI * 2f + Hash(i, 0, 97) * 0.4f;
+                float r = 0.09f + Hash(i, 1, 98) * 0.07f;
+                var from = foot + new Vector3(Mathf.Cos(a) * 0.02f, -0.03f, Mathf.Sin(a) * 0.02f);
+                var knee = from + new Vector3(Mathf.Cos(a) * r * 0.4f, -0.09f, Mathf.Sin(a) * r * 0.4f);
+                var end = new Vector3(Mathf.Cos(a) * r, 0.006f, Mathf.Sin(a) * r);
+                head.Tube(from, knee, 0.012f, 0.011f, 4, Vector3.up, 6f);
+                head.Tube(knee, end, 0.011f, 0.009f, 4, Vector3.up, 6f);
             }
             Place("Head", head, "Mop", Vector3.zero, default, g);
         }

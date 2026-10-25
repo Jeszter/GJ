@@ -32,6 +32,8 @@ namespace GJ.Game
         public bool Lit { get; private set; }
         // Set while the revolver is out: the lighter hand drops out of view.
         public bool Lowered { get; set; }
+        // No lighter in it at all (the graveyard): a bare fist, and nothing to light.
+        public bool Bare { get; private set; }
 
         Vector3 _restPos;
         Quaternion _restRot;
@@ -50,7 +52,7 @@ namespace GJ.Game
         Coroutine _act;
         System.Action _finishAct;  // lands the running act at once if it gets cut short
 
-        const float LidOpen = 135f;
+        const float LidOpen = 105f;
 
         void Awake()
         {
@@ -90,6 +92,7 @@ namespace GJ.Game
         // Start dark (lid shut, no flame), then light up on our own.
         public void LightUp(float delay = 0.4f)
         {
+            if (Bare) return;
             if (_act != null) StopCoroutine(_act);
             _act = StartCoroutine(LightRoutine(delay));
         }
@@ -97,7 +100,7 @@ namespace GJ.Game
         // Shut a burning lighter, or open and strike a closed one.
         public void Toggle()
         {
-            if (_act != null) return;
+            if (_act != null || Bare) return;
             _act = StartCoroutine(Lit ? CloseRoutine() : LightRoutine(0f));
         }
 
@@ -232,7 +235,7 @@ namespace GJ.Game
             _act = StartCoroutine(Move(0.2f, 0.12f, 0.3f, 1.1f, 0.8f, 1f, false));
         }
 
-        // A short punch with the lighter balled in the fist.
+        // A short punch, the fist squeezed shut on the way out.
         public void Jab()
         {
             if (_act != null) return;
@@ -246,6 +249,18 @@ namespace GJ.Game
         {
             if (lid != null) lid.parent.gameObject.SetActive(!empty);
             _open = empty ? 0.8f : 0f;
+        }
+
+        // The lighter gone for good and the hand closed into a fist.
+        public void MakeBare()
+        {
+            if (_act != null) StopCoroutine(_act);
+            _act = null;
+            _finishAct = null;
+            SetUnlit();
+            Bare = true;
+            if (lid != null) lid.parent.gameObject.SetActive(false);
+            _open = 0f;
         }
 
         // Out for "outT" seconds (reaching thrust, opening the fingers by open and tipping the palm by palm), hold for
@@ -340,15 +355,19 @@ namespace GJ.Game
                 float grip = _squeeze * (joint == 0 ? 2f : 1f);
                 float tap = finger == 0 && joint < 2 ? -tapLift : 0f;
                 float spread = -_open * (joint == 0 ? 35f : 25f);
-                fingers[i].localRotation = _fingerRest[i] * Quaternion.Euler(wander + shake + grip + tap + spread, 0f, 0f);
+                // With nothing to hold, the fingers close the rest of the way into a fist.
+                float fist = Bare ? (joint == 0 ? 45f : 30f) : 0f;
+                if (Bare) tap = 0f;
+                fingers[i].localRotation = _fingerRest[i] * Quaternion.Euler(wander + shake + grip + tap + spread + fist, 0f, 0f);
             }
 
             if (_thumbRest.Length == 3)
             {
                 float rest = (Mathf.PerlinNoise(now * 0.4f, 7.7f) - 0.5f) * 5f;
                 thumb[0].localRotation = _thumbRest[0] * Quaternion.Euler(-25f * _thumbLift + 5f * _thumbPress, 0f, 0f);
-                thumb[1].localRotation = _thumbRest[1] * Quaternion.Euler(rest - 35f * _thumbLift + 20f * _thumbPress, 0f, 0f);
-                thumb[2].localRotation = _thumbRest[2] * Quaternion.Euler(rest - 35f * _thumbLift + 25f * _thumbPress, 0f, 0f);
+                float fold = Bare ? 1f : 0f;   // the thumb folded across the fist
+                thumb[1].localRotation = _thumbRest[1] * Quaternion.Euler(rest - 35f * _thumbLift + 20f * _thumbPress + 30f * fold, 0f, 0f);
+                thumb[2].localRotation = _thumbRest[2] * Quaternion.Euler(rest - 35f * _thumbLift + 25f * _thumbPress + 25f * fold, 0f, 0f);
             }
         }
 

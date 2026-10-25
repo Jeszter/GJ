@@ -7,8 +7,9 @@ namespace GJ.Game
     // The miners' chapel past the corridor's last door: plenty of air, pews, candles, and whatever the men who came
     // down before left lying about (boxes of rounds, a revolver on the altar). The way up to the surface is a wooden
     // door chained shut with a padlock: a round through the lock and it swings. Or the revolver turned the other way,
-    // and the run ends down here. Open it and walk up to it, and something in a robe comes through it first: takes you
-    // by the wrist, knocks the revolver out of your hand and drags you out into the graveyard.
+    // and the run ends down here. It swings out on the night: a few seconds of graves and fog and a lamp out there,
+    // then something in a robe steps into the doorway, comes for you, takes you by the wrist, knocks the revolver out
+    // of your hand and drags you out into the graveyard.
     public class ChapelPuzzle : RoomPuzzle
     {
         [System.Serializable]
@@ -23,16 +24,18 @@ namespace GJ.Game
         }
 
         public Loot[] loot;
-        public Shootable padlock;
+        public Shootable padlock, chainTarget, doorTarget;
         public GameObject padlockPiece, chain;
         public AudioClip takeClip, snapClip, bellClip;
         public RobedFigure figure;           // waiting in the dark beyond the door
         public Transform doorway;            // where it steps in from
         public GameObject droppedGun;        // the revolver falling out of your hand
-        public float ambushZ = 14f;          // walk this far up the aisle with the door open and it comes
+        public float lookSeconds = 2.8f;     // how long the open door shows you the night before it comes
+        public float ambushZ = 17f;          // or step into the doorway before that, and it is on you at once
         public AudioClip grabClip, clatterClip;
 
         bool _open, _ambushed;
+        float _openedAt;
 
         public override bool Working => false;
 
@@ -45,13 +48,16 @@ namespace GJ.Game
         void Awake()
         {
             if (padlock != null) padlock.Shot += _ => Unlock();
+            if (chainTarget != null) chainTarget.Shot += _ => Unlock();
+            if (doorTarget != null) doorTarget.Shot += _ => Unlock();
             if (figure != null) figure.gameObject.SetActive(false);
             if (droppedGun != null) droppedGun.SetActive(false);
         }
 
         void Update()
         {
-            if (_open && !_ambushed && figure != null && Director != null && Director.Alive && Director.Controller.transform.position.z > ambushZ)
+            if (_open && !_ambushed && figure != null && Director != null && Director.Alive
+                && (Time.time - _openedAt > lookSeconds || Director.Controller.transform.position.z > ambushZ))
                 StartCoroutine(Ambush());
         }
 
@@ -78,15 +84,29 @@ namespace GJ.Game
             dir.y = 0f;
             dir.Normalize();
             Vector3 to = body.transform.position - dir * 0.85f;
+            // Out of the dark into the doorway first, and it stands there a moment, eyes on you, the view dragged to it.
+            Vector3 outside = from - dir * 2.2f;
             figure.gameObject.SetActive(true);
             figure.Show(figure.idle);
-            figure.transform.SetPositionAndRotation(from, Quaternion.LookRotation(dir));
+            figure.transform.SetPositionAndRotation(outside, Quaternion.LookRotation(dir));
             if (figure.hissClip != null) AudioSource.PlayClipAtPoint(figure.hissClip, from + Vector3.up * 1.5f, 1f);
-
-            // The rush: fast, the head snapping round to it.
-            for (float t = 0f; t < 0.5f; t += Time.deltaTime)
+            for (float t = 0f; t < 0.9f; t += Time.deltaTime)
             {
-                float k = t / 0.5f;
+                figure.transform.position = Vector3.Lerp(outside, from, Mathf.SmoothStep(0f, 1f, t / 0.9f));
+                LookAt(head, figure.eyes.position, 9f);
+                yield return null;
+            }
+            for (float t = 0f; t < 0.6f; t += Time.deltaTime)
+            {
+                LookAt(head, figure.eyes.position, 9f);
+                yield return null;
+            }
+
+            // The rush: fast however far away you stand, the head held on it.
+            float rush = Mathf.Max(0.45f, Vector3.Distance(from, to) / 11f);
+            for (float t = 0f; t < rush; t += Time.deltaTime)
+            {
+                float k = t / rush;
                 figure.transform.position = Vector3.Lerp(from, to, k * k);
                 LookAt(head, figure.eyes.position, 14f);
                 yield return null;
@@ -195,6 +215,7 @@ namespace GJ.Game
                 if (gun == null || !gun.Owned) return new Option { prompt = "chained shut. a padlock the size of a fist" };
                 if (gun.rounds <= 0) return new Option { prompt = "chained shut. no rounds left" };
                 if (!gun.Drawn) return new Option { prompt = "[Q] draw the revolver" };
+                return new Option { prompt = "[LMB] shoot the lock off" };
             }
             return null;
         }
@@ -221,6 +242,7 @@ namespace GJ.Game
         {
             if (_open) return;
             _open = true;
+            _openedAt = Time.time;
             if (padlockPiece != null) padlockPiece.SetActive(false);
             if (chain != null) chain.SetActive(false);
             if (snapClip != null) AudioSource.PlayClipAtPoint(snapClip, padlock.transform.position, 1f);

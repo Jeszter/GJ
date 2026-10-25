@@ -20,54 +20,134 @@ namespace GJ.PSX.EditorTools
             FinishBuild();
         }
 
-        // A tall thin body under a black robe that falls to the ground, a deep hood, and a bone-white mask with hollow
-        // eyes, two red points burning in them. Baked in four poses under one root that faces +Z.
+        // The cultist from the reference, built piece by piece so its arms can be posed: a long robe split at the hem
+        // over dark boots, a hip-length tunic over it with bone clasps down the front and swirls on the chest, a rope
+        // belt, wide sleeves, pale hands, and a rounded hood with a black shield of nothing where the face should be.
+        // Four poses (standing with the blade low, reaching out, blade raised, fallen) under one root facing +Z.
         static Game.RobedFigure RobedFigure(Transform parent, Vector3 at, float yaw)
         {
             var root = Group("RobedFigure", at, yaw, parent);
-            GameObject Pose(string name, System.Action<Transform> pose, bool lying = false)
-            {
-                var holder = Group(name, Vector3.zero, 0f, root);
-                var model = Model("../LOWHO/Vampire", Vector3.zero, 0f, 1.95f, holder, 0f, null, null, pose, false);
-                foreach (var r in model.GetComponentsInChildren<Renderer>())
-                {
-                    var mats = r.sharedMaterials;
-                    for (int i = 0; i < mats.Length; i++) mats[i] = Mats["Robe"];
-                    r.sharedMaterials = mats;
-                }
-                Shroud(holder);
-                if (lying)
-                {
-                    holder.localRotation = Quaternion.Euler(-90f, 0f, 0f);
-                    holder.localPosition = new Vector3(0f, 0.22f, 0f);
-                }
-                return holder.gameObject;
-            }
             var fig = root.gameObject.AddComponent<Game.RobedFigure>();
-            fig.idle = Pose("Idle", PoseStanding);
-            fig.reach = Pose("Reach", r => { PoseStanding(r); Bend(r, "upper_arm.R", Vector3.right, -80f); Bend(r, "forearm.R", Vector3.right, 50f); });
-            fig.strike = Pose("Strike", r => { PoseStanding(r); Bend(r, "upper_arm.R", Vector3.right, -150f); Bend(r, "forearm.R", Vector3.right, 20f); });
-            fig.fallen = Pose("Fallen", PoseFallen, true);
+            Vector3 shR = new Vector3(0.27f, 1.47f, 0f), shL = new Vector3(-0.27f, 1.47f, 0f);
+            Vector3[] downL = { shL, new Vector3(-0.34f, 1.17f, 0.02f), new Vector3(-0.37f, 0.91f, 0.06f) };
+            Vector3[] downR = { shR, new Vector3(0.33f, 1.17f, 0.04f), new Vector3(0.35f, 0.93f, 0.14f) };
+            Vector3[] outR = { shR, new Vector3(0.3f, 1.42f, 0.3f), new Vector3(0.26f, 1.4f, 0.6f) };
+            Vector3[] upR = { shR, new Vector3(0.36f, 1.78f, 0.06f), new Vector3(0.33f, 2.05f, -0.04f) };
+            fig.idle = CultistPose(root, "Idle", downR, downL);
+            fig.reach = CultistPose(root, "Reach", outR, downL);
+            fig.strike = CultistPose(root, "Strike", upR, downL);
+            fig.fallen = CultistPose(root, "Fallen", outR, new[] { shL, new Vector3(-0.55f, 1.4f, 0.05f), new Vector3(-0.82f, 1.38f, 0.1f) });
+            fig.fallen.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            fig.fallen.transform.localPosition = new Vector3(0f, 0.3f, 0f);
+
             var eyes = new GameObject("Eyes").transform;
             eyes.SetParent(root, false);
-            eyes.localPosition = new Vector3(0f, 1.756f, 0.285f);
+            eyes.localPosition = new Vector3(0f, 1.72f, 0.175f);
             foreach (float s in new[] { -1f, 1f })
             {
                 var eye = new MeshBuilder();
-                eye.Cross(Vector3.zero, 0.035f, 0.035f);
-                Place("Eye", eye, "RedHalo", new Vector3(0.0375f * s, 0f, 0f), default, eyes);
+                eye.Cross(Vector3.zero, 0.03f, 0.03f);
+                Place("Eye", eye, "RedHalo", new Vector3(0.04f * s, 0f, 0f), default, eyes);
             }
             fig.eyes = eyes;
+
+            // The blade in the right hand: hanging low, or raised over the head.
+            fig.knifeLow = Machete(root, downR[2] + new Vector3(0f, -0.03f, 0.06f), new Vector3(160f, 0f, 0f));
+            fig.knifeHigh = Machete(root, upR[2] + new Vector3(0f, 0.03f, 0f), new Vector3(-15f, 0f, -30f));
+            var splat = new MeshBuilder { FaceShade = false };
+            for (int i = 0; i < 6; i++)
+            {
+                float a = i / 6f * Mathf.PI * 2f, r = 0.05f + Hash(i, 0, 191) * 0.12f;
+                splat.Quad(new Vector3(Mathf.Cos(a) * r - 0.06f, 0f, Mathf.Sin(a) * r - 0.06f), new Vector3(0.12f + Hash(i, 1, 192) * 0.08f, 0f, 0f), new Vector3(0f, 0f, 0.12f), 4f);
+            }
+            var splatGo = Place("BloodSplat", splat, "Blood", Vector3.zero, default, parent);
+            splatGo.SetActive(false);
+            fig.bloodSplat = splatGo;
+
             var body = root.gameObject.AddComponent<CapsuleCollider>();
-            body.height = 1.9f;
-            body.radius = 0.35f;
-            body.center = new Vector3(0f, 0.95f, 0f);
+            body.height = 2.05f;
+            body.radius = 0.36f;
+            body.center = new Vector3(0f, 1.02f, 0f);
             root.gameObject.AddComponent<Game.Shootable>();
             fig.hissClip = PSXSoundGenerator.Load("steam");
             fig.hitClip = PSXSoundGenerator.Load("clunk");
             fig.swingClip = PSXSoundGenerator.Load("chain");
             fig.fallClip = PSXSoundGenerator.Load("rumble");
             return fig;
+        }
+
+        // One pose of the cultist; each arm is shoulder, elbow, wrist.
+        static GameObject CultistPose(Transform root, string name, Vector3[] armR, Vector3[] armL)
+        {
+            var g = Group(name, Vector3.zero, 0f, root);
+            var robe = new MeshBuilder();
+            // The long skirt to the ankles, and the tunic over it to the hips, a touch wider at its hem.
+            robe.Tube(new Vector3(0f, 0.04f, 0f), new Vector3(0f, 1.0f, 0f), 0.31f, 0.21f, 10, Vector3.forward, 1f);
+            robe.Tube(new Vector3(0f, 0.86f, 0f), new Vector3(0f, 1.42f, 0f), 0.27f, 0.23f, 10, Vector3.forward, 1f);
+            robe.Limb(new Vector3(-0.3f, 1.44f, 0f), new Vector3(0.3f, 1.44f, 0f), 0.16f, 0.2f, 0.16f, 0.2f, Vector3.up, 1f);
+            // The hood: round, falling back behind the head, its front cut open for the face.
+            robe.Tube(new Vector3(0f, 1.42f, -0.02f), new Vector3(0f, 1.62f, -0.02f), 0.19f, 0.2f, 10, Vector3.forward, 1f);
+            robe.Tube(new Vector3(0f, 1.62f, -0.02f), new Vector3(0f, 1.86f, -0.05f), 0.2f, 0.16f, 10, Vector3.forward, 1f);
+            robe.Tube(new Vector3(0f, 1.86f, -0.05f), new Vector3(0f, 1.96f, -0.1f), 0.16f, 0.06f, 10, Vector3.forward, 1f);
+            // Wide sleeves, flaring at the cuff.
+            foreach (var arm in new[] { armR, armL })
+            {
+                robe.Tube(arm[0], arm[1], 0.075f, 0.085f, 7, UpFor(arm[1] - arm[0]), 2f);
+                robe.Tube(arm[1], arm[2], 0.085f, 0.13f, 7, UpFor(arm[2] - arm[1]), 2f);
+            }
+            Place("Robe", robe, "Robe", Vector3.zero, default, g);
+
+            // Clasps down the front of tunic and skirt; swirls on the chest either side of them.
+            var clasps = new MeshBuilder();
+            clasps.Quad(new Vector3(0.04f, 0.12f, 0.302f), new Vector3(-0.08f, 0f, 0f), new Vector3(0f, 0.8f, -0.09f), 1f / 0.08f);
+            clasps.Quad(new Vector3(0.04f, 0.9f, 0.27f), new Vector3(-0.08f, 0f, 0f), new Vector3(0f, 0.5f, -0.035f), 1f / 0.08f);
+            Place("Clasps", clasps, "Clasps", Vector3.zero, default, g);
+            var swirls = new MeshBuilder();
+            foreach (float s in new[] { -1f, 1f })
+                swirls.Quad(new Vector3(0.05f * s + (s > 0 ? 0.13f : 0f), 1.12f, 0.255f), new Vector3(-0.13f, 0f, 0f), new Vector3(0f, 0.22f, -0.015f), 1f / 0.13f);
+            Place("Swirls", swirls, "Embroidery", Vector3.zero, default, g);
+            // A thin rope belt.
+            var belt = new MeshBuilder();
+            belt.Tube(new Vector3(0f, 0.96f, 0f), new Vector3(0f, 0.99f, 0f), 0.255f, 0.255f, 10, Vector3.forward, 4f);
+            Place("Belt", belt, "Leather", Vector3.zero, default, g);
+            // Where a face should be: nothing, only black shadow in the hood, narrow at the chin, broad at the brow.
+            var face = new MeshBuilder { FaceShade = false };
+            face.Limb(new Vector3(0f, 1.5f, 0.186f), new Vector3(0f, 1.83f, 0.15f), 0.09f, 0.01f, 0.22f, 0.01f, Vector3.forward, 4f);
+            Place("Void", face, "Void", Vector3.zero, default, g);
+
+            // Pale hands out of the cuffs, thumbs up the side.
+            var hands = new MeshBuilder();
+            foreach (var arm in new[] { armR, armL })
+            {
+                Vector3 d = (arm[2] - arm[1]).normalized;
+                Vector3 side = Vector3.Cross(d, Vector3.up).sqrMagnitude > 0.01f ? Vector3.Cross(d, Vector3.up).normalized : Vector3.right;
+                hands.Limb(arm[2] - d * 0.02f, arm[2] + d * 0.15f, 0.085f, 0.035f, 0.075f, 0.03f, UpFor(d), 4f);
+                hands.Limb(arm[2] + d * 0.02f + side * 0.045f, arm[2] + d * 0.08f + side * 0.08f, 0.025f, 0.025f, 0.02f, 0.02f, UpFor(d), 4f);
+            }
+            Place("Hands", hands, "PaleSkin", Vector3.zero, default, g);
+            // Only the toes of dark boots under the hem.
+            var boots = new MeshBuilder();
+            foreach (float s in new[] { -1f, 1f })
+                boots.ChamferBox(new Vector3(0.1f * s, 0.045f, 0.25f), new Vector3(0.12f, 0.09f, 0.16f), 0.02f, 4f);
+            Place("Boots", boots, "Leather", Vector3.zero, default, g);
+            return g.gameObject;
+        }
+
+        // A machete as long as an arm: wrapped grip, a crossbar, and a broad blade that widens to its tip, bloody. Grip at
+        // the origin, blade along +Y; hidden until the figure draws it.
+        static GameObject Machete(Transform parent, Vector3 grip, Vector3 euler)
+        {
+            var g = Group("Machete", grip, 0f, parent);
+            g.localRotation = Quaternion.Euler(euler);
+            Cyl("Grip", "Leather", new Vector3(0f, -0.12f, 0f), 0.022f, 0.2f, 6, default, 6f, g);
+            Block("Guard", "DarkMetal", new Vector3(0f, 0.09f, 0f), new Vector3(0.1f, 0.025f, 0.035f), default, 6f, g);
+            var blade = new MeshBuilder();
+            blade.Quad(new Vector3(-0.05f, 0.1f, 0.005f), new Vector3(0.1f, 0f, 0f), new Vector3(0.035f, 0.88f, 0f), 1f / 0.1f);
+            blade.Quad(new Vector3(0.05f, 0.1f, -0.005f), new Vector3(-0.1f, 0f, 0f), new Vector3(0.035f, 0.88f, 0f), 1f / 0.1f);
+            blade.Box(new Vector3(-0.05f, 0.54f, 0f), new Vector3(0.012f, 0.88f, 0.012f), 8f);
+            Place("Blade", blade, "BloodyBlade", Vector3.zero, default, g);
+            g.gameObject.SetActive(false);
+            return g.gameObject;
         }
 
         // A cast-iron lamp post: a stepped foot, a fluted post with a collar, a scrolled arm out over the path and a
@@ -85,7 +165,10 @@ namespace GJ.PSX.EditorTools
             arm.Tube(new Vector3(0f, 2.3f, 0f), new Vector3(0.22f, 2.57f, 0f), 0.015f, 0.015f, 5, Vector3.forward, 4f);
             Place("Arm", arm, "DarkMetal", Vector3.zero, default, g);
             var lamp = Group("Lantern", new Vector3(0.42f, 2.26f, 0f), 0f, g);
-            Block("Glass", "LanternGlass", new Vector3(0f, 0.16f, 0f), new Vector3(0.16f, 0.24f, 0.16f), default, 4f, lamp);
+            Block("Glass", "LanternPane", new Vector3(0f, 0.16f, 0f), new Vector3(0.16f, 0.24f, 0.16f), default, 1f / 0.16f, lamp);
+            var flame = new MeshBuilder();
+            flame.Cross(Vector3.zero, 0.04f, 0.08f);
+            Place("Flame", flame, "Flame", new Vector3(0f, 0.13f, 0f), default, lamp);
             foreach (float sx in new[] { -1f, 1f })
                 foreach (float sz in new[] { -1f, 1f })
                     Block("Frame", "DarkMetal", new Vector3(0.085f * sx, 0.16f, 0.085f * sz), new Vector3(0.02f, 0.26f, 0.02f), default, 4f, lamp);
@@ -95,20 +178,8 @@ namespace GJ.PSX.EditorTools
             Place("Roof", roof, "DarkMetal", Vector3.zero, new Vector3(0f, 45f, 0f), lamp);
             Block("Hook", "DarkMetal", new Vector3(0f, 0.38f, 0f), new Vector3(0.015f, 0.08f, 0.015f), default, 4f, lamp);
             var halo = new MeshBuilder();
-            halo.Cross(Vector3.zero, 1.1f, 1.1f);
-            Place("Halo", halo, "Halo", new Vector3(0f, 0.16f, 0f), default, lamp);
-        }
-
-        // The robe to the ground, the hood, and the mask in the hood's mouth.
-        static void Shroud(Transform pose)
-        {
-            var robe = new MeshBuilder();
-            robe.Tube(new Vector3(0f, 0f, 0f), new Vector3(0f, 1.48f, 0f), 0.48f, 0.24f, 10, Vector3.forward, 1f);
-            robe.Tube(new Vector3(0f, 1.35f, -0.03f), new Vector3(0f, 2.12f, -0.08f), 0.37f, 0.08f, 9, Vector3.forward, 1f);
-            Place("Robe", robe, "Robe", Vector3.zero, default, pose);
-            var mask = new MeshBuilder { FaceShade = false };
-            mask.Quad(new Vector3(0.1f, 1.6f, 0.27f), new Vector3(-0.2f, 0f, 0f), new Vector3(0f, 0.26f, 0f), 1f / 0.2f);
-            Place("Mask", mask, "Mask", Vector3.zero, default, pose);
+            halo.Cross(Vector3.zero, 0.55f, 0.55f);
+            Place("Halo", halo, "FlameHalo", new Vector3(0f, 0.16f, 0f), default, lamp);
         }
 
         static void BuildGraveyard()
@@ -245,6 +316,7 @@ namespace GJ.PSX.EditorTools
             puzzle.punchClip = PSXSoundGenerator.Load("clunk");
             puzzle.swishClip = PSXSoundGenerator.Load("ui_move");
             puzzle.takeClip = PSXSoundGenerator.Load("rifle_bolt");
+            puzzle.drawClip = PSXSoundGenerator.Load("ratchet");
 
             // The director wants a display; out here it is a dead clock face in the bell tower.
             var clock = new MeshBuilder { FaceShade = false };

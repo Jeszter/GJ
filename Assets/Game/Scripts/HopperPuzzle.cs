@@ -241,6 +241,8 @@ namespace GJ.Game
             ventHopperBody.localPosition = _ventHopperRest + Vector3.up * 0.35f * ventLift;
             ventShutter.localRotation = _shutterRest * Quaternion.Euler(70f * Mathf.Clamp01((ventLift - 0.85f) / 0.15f), 0f, 0f);
 
+            Follow(boltStream, boltHopperBody, boltPile);
+            Follow(ventStream, ventHopperBody, ventPile);
             Pour(boltStream, boltPile, boltPour, _boltHoled && _boltSand > 0f && !_ropeSnapped, 1f - _boltSand);
             Pour(ventStream, ventPile, ventPour, _ventHoled && _ventSand > 0f, 1f - _ventSand);
 
@@ -250,6 +252,15 @@ namespace GJ.Game
                 Play(clunkClip, 1f, bolt.position);
                 RaiseSolved();
             }
+        }
+
+        // The sand falls from the funnel's tip, wherever the hopper has risen to, down to the top of its heap.
+        static void Follow(GameObject stream, Transform hopper, Transform pile)
+        {
+            Vector3 tip = hopper.position + Vector3.down * 0.47f;
+            float bottom = pile.gameObject.activeSelf ? pile.position.y + 0.25f * pile.localScale.y : 0f;
+            stream.transform.position = tip;
+            stream.transform.localScale = new Vector3(1f, Mathf.Max(0.05f, (tip.y - bottom) / 1.85f), 1f);
         }
 
         static void Pour(GameObject stream, Transform pile, AudioSource sound, bool pouring, float poured)

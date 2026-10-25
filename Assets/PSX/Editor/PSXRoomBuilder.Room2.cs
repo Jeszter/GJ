@@ -112,8 +112,16 @@ namespace GJ.PSX.EditorTools
         static GameObject Stream(string name, Vector3 bottom, float height, float width, Transform parent)
         {
             var mb = new MeshBuilder { FaceShade = false };
-            mb.Cross(Vector3.zero, width, height);
-            return Place(name, mb, "WaterStream", bottom, default, parent);
+            mb.Cross(Vector3.zero, width * 2.2f, height);
+            var go = Place(name, mb, "WaterStream", bottom, default, parent);
+            // A solid core inside the glow, and a little splash where it lands.
+            var core = new MeshBuilder { FaceShade = false };
+            core.Box(new Vector3(0f, height * 0.5f, 0f), new Vector3(width * 0.45f, height, width * 0.45f), 8f);
+            Place("Core", core, "SightWater", Vector3.zero, default, go.transform);
+            var splash = new MeshBuilder { FaceShade = false };
+            splash.Cross(new Vector3(0f, -0.02f, 0f), width * 4f, width * 2.4f);
+            Place("Splash", splash, "WaterStream", Vector3.zero, default, go.transform);
+            return go;
         }
 
         static Game.CisternPuzzle BuildCistern()

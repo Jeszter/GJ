@@ -654,19 +654,52 @@ namespace GJ.PSX.EditorTools
                 return Shade(new Color(0.5f, 0.38f, 0.15f), (Hash(x / 2, y / 2, 181) - 0.5f) * 0.08f);
             }), new Color(0.05f, 0.04f, 0.02f));
             // The figure: a coarse black robe, and a bone-white mask with hollow eyes and a stitched slit of a mouth.
+            // The cultist (after the reference): a dusty maroon-brown robe, a darker seam with bone-pale clasps down the
+            // front, faint swirls stitched on the chest, pale hands, and a hood with a lighter rim round a black hollow
+            // shaped like a shield where the face should be.
             Lit("Robe", lit, MakeTexture("robe", 16, (x, y) =>
-                Shade(new Color(0.07f, 0.065f, 0.07f), (Hash(x, y / 2, 182) - 0.5f) * 0.05f + (x % 4 == 0 ? -0.02f : 0f))));
+                Shade(new Color(0.3f, 0.16f, 0.14f), (Hash(x, y / 2, 182) - 0.5f) * 0.05f + (x % 5 == 0 ? -0.025f : 0f))),
+                new Color(0.03f, 0.015f, 0.012f));
+            Lit("Clasps", lit, MakeTexture("clasps", 8, 32, (x, y) =>
+            {
+                bool clasp = y % 4 == 1 && x > 0 && x < 7;
+                bool seam = x == 3 || x == 4;
+                if (clasp) return Shade(new Color(0.5f, 0.36f, 0.3f), (Hash(x, y, 197) - 0.5f) * 0.06f);
+                return seam ? new Color(0.1f, 0.05f, 0.04f) : Shade(new Color(0.27f, 0.14f, 0.12f), (Hash(x, y, 198) - 0.5f) * 0.05f);
+            }), new Color(0.03f, 0.015f, 0.012f));
+            Lit("Embroidery", lit, MakeTexture("embroidery", 16, 16, (x, y) =>
+            {
+                Vector2 c1 = new Vector2(5f, 10f), c2 = new Vector2(10f, 5f);
+                float r1 = (new Vector2(x, y) - c1).magnitude, r2 = (new Vector2(x, y) - c2).magnitude;
+                bool line = Mathf.Abs(r1 - 3.5f) < 0.6f || Mathf.Abs(r2 - 2.5f) < 0.6f || (x == 8 && y > 2 && y < 13);
+                return line ? new Color(0.19f, 0.09f, 0.08f) : Shade(new Color(0.3f, 0.16f, 0.14f), (Hash(x, y, 199) - 0.5f) * 0.05f);
+            }), new Color(0.03f, 0.015f, 0.012f));
+            Lit("Void", lit, Plain("void", new Color(0f, 0f, 0f), 0f));
+            Lit("PaleSkin", lit, Plain("pale_skin", new Color(0.86f, 0.84f, 0.94f), 0.04f), new Color(0.12f, 0.12f, 0.14f));
             Lit("Mask", lit, MakeTexture("mask", 16, 20, (x, y) =>
             {
-                Vector2 p = new Vector2(x - 7.5f, y - 9.5f);
-                bool eye = (new Vector2(Mathf.Abs(p.x) - 3f, p.y - 2.5f)).magnitude < 1.8f;
-                bool mouth = Mathf.Abs(p.y + 5f) < 0.6f && Mathf.Abs(p.x) < 3.5f;
-                bool stitch = Mathf.Abs(p.y + 5f) < 1.6f && Mathf.Abs(p.x) < 3.5f && x % 2 == 0;
-                bool crack = Mathf.Abs(p.x - 1f - p.y * 0.4f) < 0.5f && p.y > 3f;
-                if (eye) return new Color(0.02f, 0.01f, 0.01f);
-                if (mouth || stitch || crack) return new Color(0.2f, 0.16f, 0.14f);
-                return Shade(new Color(0.82f, 0.79f, 0.7f), (Hash(x, y, 183) - 0.5f) * 0.08f - p.magnitude * 0.008f);
-            }), new Color(0.12f, 0.11f, 0.1f));
+                // A shield: flat-topped, sides drawn in to a point at the chin.
+                float u = Mathf.Abs(x - 7.5f) / 7.5f, v = y / 19f;
+                float halfW = v > 0.45f ? 0.72f - (v - 0.45f) * 0.5f : 0.72f * (v / 0.45f);
+                float rimW = halfW + 0.2f;
+                if (u < halfW && v > 0.04f && v < 0.88f) return new Color(0f, 0f, 0f);
+                if (u < rimW && v < 0.97f) return Shade(new Color(0.4f, 0.23f, 0.2f), (Hash(x, y, 196) - 0.5f) * 0.05f);
+                return Shade(new Color(0.3f, 0.16f, 0.14f), (Hash(x, y, 195) - 0.5f) * 0.05f);
+            }));
+            Lit("LanternPane", lit, MakeTexture("lantern_pane", 8, 16, (x, y) =>
+                x == 0 || y % 8 == 0 ? new Color(0.08f, 0.07f, 0.06f) : Shade(new Color(0.75f, 0.52f, 0.25f), (Hash(x, y, 185) - 0.5f) * 0.1f)),
+                new Color(0.55f, 0.32f, 0.12f));
+            // Blood: near-black red, wet highlights; and the blade, steel run with it.
+            Lit("Blood", lit, MakeTexture("blood", 16, (x, y) =>
+                Shade(new Color(0.3f, 0.02f, 0.02f), (Hash(x, y, 186) - 0.5f) * 0.1f + (Hash(x / 3, y / 3, 187) > 0.85f ? 0.12f : 0f))),
+                new Color(0.08f, 0f, 0f));
+            Lit("BloodyBlade", lit, MakeTexture("bloody_blade", 8, 32, (x, y) =>
+            {
+                bool edge = x == 7;
+                bool blood = y < 20 && Hash(x, y / 2, 188) > 0.35f - y * 0.02f;
+                var c = edge ? new Color(0.85f, 0.86f, 0.88f) : new Color(0.55f, 0.56f, 0.6f);
+                return blood ? Shade(new Color(0.35f, 0.02f, 0.02f), (Hash(x, y, 189) - 0.5f) * 0.08f) : Shade(c, (Hash(x, y, 190) - 0.5f) * 0.06f);
+            }), new Color(0.22f, 0.18f, 0.18f));
             Lit("Pine", lit, MakeTexture("pine", 16, (x, y) =>
                 Shade(new Color(0.06f, 0.1f, 0.07f), (Hash(x, y, 184) - 0.5f) * 0.06f)));
             // Faded blue work overalls for the bodies left on the floor: they have to read against warm brick and tile.
@@ -1662,7 +1695,7 @@ namespace GJ.PSX.EditorTools
             Block("Side_R", "Crate", new Vector3(0.27f, 0.15f, 0), new Vector3(0.025f, 0.26f, 0.32f), default, 2f, charges);
             Block("Straw", "Wood", new Vector3(0, 0.2f, 0), new Vector3(0.5f, 0.02f, 0.3f), default, 6f, charges);
             for (int i = 0; i < 7; i++)
-                Cyl("Stick", "Dynamite", new Vector3(-0.2f + i * 0.065f, 0.21f, -0.06f + (i % 2) * 0.07f), 0.022f, 0.2f, 6, new Vector3(90, Hash(i, 0, 90) * 20f - 10f, 0), 4f, charges);
+                Cyl("Stick", "Dynamite", new Vector3(-0.2f + i * 0.065f, 0.21f + (i % 2) * 0.02f, -0.1f), 0.022f, 0.2f, 6, new Vector3(90, Hash(i, 0, 90) * 8f - 4f, 0), 4f, charges);
             Block("Lid", "Crate", new Vector3(0.05f, 0.03f, -0.42f), new Vector3(0.58f, 0.025f, 0.38f), new Vector3(0, -25, 4), 2f, charges);
 
             // A bucket in the way of the fuse: part of the puzzle (moving it is a step).
@@ -1920,17 +1953,20 @@ namespace GJ.PSX.EditorTools
         // Hard hat lying on its side: dome, brim, and the lamp on the front.
         static void Helmet(Vector3 pos, float yaw, Transform parent)
         {
+            // Dropped and settled crown-up on the floor, tipped a little onto its brim, the dead lamp to the front.
             var helmet = new GameObject("Helmet").transform;
             helmet.SetParent(parent, false);
-            helmet.localPosition = pos;
-            helmet.localRotation = Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(0, 0, 70);
+            helmet.localPosition = new Vector3(pos.x, 0f, pos.z);
+            helmet.localRotation = Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(-7f, 0, 4f);
             var shell = new MeshBuilder();
-            shell.Tube(new Vector3(0, 0.0f, 0), new Vector3(0, 0.1f, 0), 0.13f, 0.09f, 9, Vector3.forward, 4f);
-            shell.Tube(new Vector3(0, 0.1f, 0), new Vector3(0, 0.14f, 0), 0.09f, 0.03f, 9, Vector3.forward, 4f);
-            shell.Tube(new Vector3(0, -0.01f, 0), new Vector3(0, 0.01f, 0), 0.16f, 0.16f, 9, Vector3.forward, 4f);
-            Place("Shell", shell, "Helmet", new Vector3(0, 0.13f, 0), default, helmet);
-            Cyl("Lamp", "Steel", new Vector3(0, 0.2f, 0.11f), 0.03f, 0.04f, 7, new Vector3(90, 0, 0), 4f, helmet);
-            Cyl("LampGlass", "Glass", new Vector3(0, 0.2f, 0.15f), 0.024f, 0.006f, 7, new Vector3(90, 0, 0), 4f, helmet);
+            shell.Tube(new Vector3(0, 0.02f, 0), new Vector3(0, 0.11f, 0), 0.13f, 0.11f, 12, Vector3.forward, 4f);
+            shell.Tube(new Vector3(0, 0.11f, 0), new Vector3(0, 0.165f, 0), 0.11f, 0.045f, 12, Vector3.forward, 4f);
+            shell.Tube(new Vector3(0, 0.165f, 0), new Vector3(0, 0.18f, 0), 0.045f, 0.01f, 12, Vector3.forward, 4f);
+            shell.Box(new Vector3(0, 0.13f, 0f), new Vector3(0.025f, 0.08f, 0.24f), 4f);
+            shell.Tube(new Vector3(0, 0.0f, 0), new Vector3(0, 0.02f, 0), 0.165f, 0.165f, 12, Vector3.forward, 4f);
+            Place("Shell", shell, "Helmet", Vector3.zero, default, helmet);
+            Cyl("Lamp", "Steel", new Vector3(0, 0.1f, 0.115f), 0.032f, 0.045f, 8, new Vector3(90, 0, 0), 4f, helmet);
+            Cyl("LampGlass", "Glass", new Vector3(0, 0.1f, 0.158f), 0.025f, 0.006f, 8, new Vector3(90, 0, 0), 4f, helmet);
         }
 
         static Light PointLight(string name, Vector3 pos, Color color, float range, float intensity)
@@ -2041,27 +2077,27 @@ namespace GJ.PSX.EditorTools
             Place("Case", caseMb, "Chrome", Vector3.zero, default, zippo);
             Block("Seam", "DarkMetal", new Vector3(0, 0.0352f, 0), new Vector3(0.0385f, 0.0012f, 0.0135f), default, 4f, zippo);
             var chimneyMb = new MeshBuilder { FaceShade = false };
-            chimneyMb.ChamferBox(new Vector3(-0.003f, 0.053f, 0), new Vector3(0.024f, 0.017f, 0.009f), 0.002f, 1f / 0.024f);
+            chimneyMb.ChamferBox(new Vector3(-0.003f, 0.0424f, 0), new Vector3(0.024f, 0.0136f, 0.009f), 0.002f, 1f / 0.024f);
             Place("Chimney", chimneyMb, "Chimney", Vector3.zero, default, zippo);
-            var wheelGo = Cyl("Wheel", "Steel", new Vector3(0.0125f, 0.055f, -0.004f), 0.0045f, 0.008f, 6, new Vector3(90, 0, 0), 4f, zippo);
+            var wheelGo = Cyl("Wheel", "Steel", new Vector3(0.0125f, 0.047f, -0.004f), 0.0045f, 0.008f, 6, new Vector3(90, 0, 0), 4f, zippo);
             Cyl("Hinge", "Chrome", new Vector3(-0.019f, 0.035f, -0.006f), 0.0018f, 0.012f, 6, new Vector3(90, 0, 0), 4f, zippo);
-            // Closed, the lid sits on top of the case and swallows the whole chimney; the hand animator swings it 135°
-            // about the hinge to open.
+            // Closed, the lid (a third of the height, as on the real thing) sits on top of the case and swallows the
+            // whole chimney; the hand animator swings it about the hinge to open, to stand up beside the chimney.
             var lidMb = new MeshBuilder();
-            lidMb.ChamferBox(new Vector3(0.019f, 0.0155f, 0), new Vector3(0.038f, 0.031f, 0.013f), 0.004f);
+            lidMb.ChamferBox(new Vector3(0.019f, 0.0101f, 0), new Vector3(0.038f, 0.0202f, 0.013f), 0.004f);
             lidMb.ChamferBox(new Vector3(0.019f, 0.0012f, 0), new Vector3(0.0385f, 0.0024f, 0.0135f), 0.004f);
-            var lidGo = Place("Lid", lidMb, "Chrome", new Vector3(-0.019f, 0.035f, 0), new Vector3(0, 0, 135), zippo);
+            var lidGo = Place("Lid", lidMb, "Chrome", new Vector3(-0.019f, 0.035f, 0), new Vector3(0, 0, 105), zippo);
             // Flint spark seen for a frame when the wheel is struck.
             var sparkMb = new MeshBuilder();
             sparkMb.Cross(Vector3.zero, 0.03f, 0.03f);
-            var flintSpark = Place("FlintSpark", sparkMb, "Flame", new Vector3(0.004f, 0.058f, -0.004f), default, zippo);
+            var flintSpark = Place("FlintSpark", sparkMb, "Flame", new Vector3(0.004f, 0.05f, -0.004f), default, zippo);
             flintSpark.SetActive(false);
 
             // The flame in layers: a soft halo, the orange tongue, and a bright core low in it. They scale and lean
             // together under one pivot.
             var flame = new GameObject("Flame");
             flame.transform.SetParent(zippo, false);
-            flame.transform.localPosition = new Vector3(-0.003f, 0.06f, 0f);
+            flame.transform.localPosition = new Vector3(-0.003f, 0.052f, 0f);
             var haloMb = new MeshBuilder();
             haloMb.Cross(new Vector3(0, -0.02f, 0), 0.085f, 0.085f);
             Place("Halo", haloMb, "FlameHalo", Vector3.zero, default, flame.transform);

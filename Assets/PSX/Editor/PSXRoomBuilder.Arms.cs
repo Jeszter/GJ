@@ -38,14 +38,14 @@ namespace GJ.PSX.EditorTools
             public Transform[] thumb;       // base, middle, tip
         }
 
-        // A loose fist round the Zippo (see BuildPlayer), seen from the thumb side: the fingers round its right edge
-        // onto the face, the thumb up by the wheel, the forearm away down to the lower right. Found by searching for a
+        // A loose fist round the Zippo (see BuildPlayer), seen from the thumb side: the fingers round the body below the
+        // lid, onto the face, the thumb up by the wheel, the forearm away down to the lower right. Found by searching for a
         // grip that touches the case without going into it.
         static readonly ArmPose LighterGrip = new ArmPose
         {
             along = new Vector3(-1f, 0.25f, -0.2f), back = new Vector3(-0.1f, 0.15f, 1f), swing = new Vector3(-15f, -35f, 0f),
-            knuckle = new Vector3(0.005f, 0.025f, 0.015f), scale = 0.8f,
-            curl = new[] { new Vector3(15f, 80f, 45f), new Vector3(19f, 80f, 45f), new Vector3(23f, 80f, 45f), new Vector3(27f, 80f, 45f) },
+            knuckle = new Vector3(0.005f, 0.016f, 0.015f), scale = 0.8f,
+            curl = new[] { new Vector3(13f, 72f, 36f), new Vector3(17f, 72f, 36f), new Vector3(21f, 72f, 36f), new Vector3(25f, 72f, 36f) },
             thumb = new Vector3(-20f, 0f, 0f), thumbBend = 25f, thumbTip = 30f
         };
 
@@ -55,7 +55,7 @@ namespace GJ.PSX.EditorTools
         static readonly ArmPose RevolverGrip = new ArmPose
         {
             along = new Vector3(-0.22f, 0.15f, 1f), back = Vector3.right, wrist = new Vector3(0f, -40f, 0f),
-            knuckle = new Vector3(0.029f, -0.004f, -0.034f), scale = 0.625f,
+            knuckle = new Vector3(0.029f, 0.018f, -0.034f), scale = 0.625f,
             curl = new[] { new Vector3(20f, 40f, 20f), new Vector3(60f, 70f, 40f), new Vector3(60f, 70f, 40f), new Vector3(60f, 70f, 40f) },
             thumb = new Vector3(0f, 0f, -10f)
         };

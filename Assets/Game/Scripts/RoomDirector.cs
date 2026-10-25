@@ -63,12 +63,13 @@ namespace GJ.Game
         Text _attempt, _prompt, _message, _noteText, _controls, _holdText;
         Image _fade, _paper, _holdBar;
         Image[] _pips, _pipRings;
+        Image _blood;
         Coroutine _flash;
         float _controlsTime = 9f;
 
         // Whether the lighter hand belongs on screen right now (it is put away while lying dead, and gone while there
         // is no lighter in it).
-        public bool HandVisible => (_phase == Phase.Alive || _phase == Phase.Cleared) && Holding;
+        public bool HandVisible => (_phase == Phase.Alive || _phase == Phase.Cleared) && (Holding || _bare);
 
         // The lighter left burning in the room (under the boiler's pot): the hand goes empty and the room dark.
         public bool LighterLeft { get; private set; }
@@ -190,6 +191,7 @@ namespace GJ.Game
         {
             if (_phase != Phase.Alive) return;
             _hurt = 1f;
+            _bleed = 1f;
             _air = Mathf.Max(0f, (_breath - 1) * breathSeconds);
             if (heartbeatClip != null) _heart.PlayOneShot(heartbeatClip, 1f);
             if (_air <= 0f) Kill(line);
@@ -198,10 +200,22 @@ namespace GJ.Game
         // A punch with the lighter hand.
         public void Jab()
         {
-            if (handAnimator != null && Holding) handAnimator.Jab();
+            if (handAnimator != null && hand.gameObject.activeInHierarchy) handAnimator.Jab();
         }
 
-        float _hurt;
+        // Nothing in the hand but a fist (the graveyard): the lighter and its light gone, the fist on screen.
+        public void BareHands()
+        {
+            _bare = true;
+            hand.gameObject.SetActive(true);
+            if (lighterLight != null) lighterLight.enabled = false;
+            if (handAnimator != null) handAnimator.MakeBare();
+            _controls.text = "[E] use   [LMB] punch   [Q] revolver";
+        }
+
+        bool _bare;
+
+        float _hurt, _bleed;
 
         // A flash over the whole view (a blow landing), fading out over the given real seconds.
         public void ScreenFlash(Color color, float seconds)
@@ -384,6 +398,8 @@ namespace GJ.Game
                 _hurt = Mathf.Max(0f, _hurt - Time.deltaTime * 2f);
                 _fade.color = new Color(0.55f, 0f, 0f, Mathf.Max(dark, _hurt * 0.55f));
             }
+            _bleed = Mathf.Max(0f, _bleed - Time.deltaTime * 0.35f);
+            if (_blood != null) _blood.color = new Color(1f, 1f, 1f, Mathf.Clamp01(_bleed * 1.2f));
             if (_flashLeft > 0f)
             {
                 _flashLeft = Mathf.Max(0f, _flashLeft - Time.unscaledDeltaTime);
@@ -545,13 +561,13 @@ namespace GJ.Game
             head.localPosition = _headRest;
             head.localRotation = Quaternion.identity;
             hand.localPosition = _handRest;
-            hand.gameObject.SetActive(Holding);
+            hand.gameObject.SetActive(Holding || _bare);
             if (handAnimator != null)
             {
                 handAnimator.enabled = true;
                 if (Holding) handAnimator.LightUp(0.5f);
             }
-            if (lighterLight != null) lighterLight.enabled = Holding;
+            if (lighterLight != null) lighterLight.enabled = Holding && !_bare;
             SetMuffled(false);
             _air = FullAir;
             _breath = breaths;
@@ -702,6 +718,14 @@ namespace GJ.Game
 
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
+            // Blood thrown across the view by a blow, fading with the hurt.
+            _blood = new GameObject("Blood").AddComponent<Image>();
+            _blood.transform.SetParent(canvasGo.transform, false);
+            Stretch(_blood.rectTransform);
+            _blood.sprite = BloodSprite();
+            _blood.color = new Color(1f, 1f, 1f, 0f);
+            _blood.raycastTarget = false;
+
             _fade = new GameObject("Fade").AddComponent<Image>();
             _fade.transform.SetParent(canvasGo.transform, false);
             Stretch(_fade.rectTransform);
@@ -804,6 +828,40 @@ namespace GJ.Game
             rt.anchoredPosition = offset;
             rt.sizeDelta = size;
             return image;
+        }
+
+        // Splashes of dark blood in from the edges of the view, a few running drips, the middle left clear.
+        static Sprite BloodSprite()
+        {
+            const int w = 160, h = 90;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            var px = new Color32[w * h];
+            var rnd = new System.Random(7);
+            var blobs = new Vector3[26];
+            for (int i = 0; i < blobs.Length; i++)
+            {
+                bool side = rnd.NextDouble() < 0.5;
+                float x = side ? (rnd.NextDouble() < 0.5 ? 0f : w) + (float)(rnd.NextDouble() - 0.5) * 30f : (float)rnd.NextDouble() * w;
+                float y = side ? (float)rnd.NextDouble() * h : (rnd.NextDouble() < 0.5 ? 0f : h) + (float)(rnd.NextDouble() - 0.5) * 20f;
+                blobs[i] = new Vector3(x, y, 6f + (float)rnd.NextDouble() * 16f);
+            }
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float a = 0f;
+                    foreach (var b in blobs)
+                    {
+                        float d = new Vector2(x - b.x, (y - b.y) * 1.2f).magnitude;
+                        // Drips running down from a blob near the top.
+                        bool drip = b.y > h * 0.7f && Mathf.Abs(x - b.x) < 1.5f && y < b.y && y > b.y - b.z * 3f && (int)b.x % 3 == 0;
+                        if (d < b.z || drip) a = Mathf.Max(a, drip ? 0.85f : Mathf.Clamp01((b.z - d) / 4f));
+                    }
+                    float n = Mathf.PerlinNoise(x * 0.2f, y * 0.2f);
+                    px[y * w + x] = new Color(0.32f + n * 0.12f, 0.01f, 0.01f, a * 0.92f);
+                }
+            tex.SetPixels32(px);
+            tex.Apply(false);
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f);
         }
 
         const int LungsW = 13, LungsH = 12;

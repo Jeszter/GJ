@@ -15,7 +15,12 @@ namespace GJ.Game
         public float reachRange = 1.7f;        // close enough to swing
         public AudioClip hissClip, hitClip, swingClip, fallClip;
 
+        public GameObject knifeLow, knifeHigh;      // the blade hanging from the hand, and raised to strike
+        public GameObject bloodSplat;               // copied onto the grass under it when it is hit
+        public bool Armed { get; set; }
+
         public System.Action<RobedFigure> Struck;   // a blow that connected with the player
+        public System.Action<RobedFigure> Wounded;  // it took a hit and is still standing
         public System.Action Died;
 
         public bool Dead { get; private set; }
@@ -28,6 +33,8 @@ namespace GJ.Game
         public void Show(GameObject pose)
         {
             foreach (var p in new[] { idle, reach, strike, fallen }) if (p != null) p.SetActive(p == pose);
+            if (knifeLow != null) knifeLow.SetActive(Armed && pose == idle);
+            if (knifeHigh != null) knifeHigh.SetActive(Armed && pose == strike);
         }
 
         void Awake() => Show(idle);
@@ -91,7 +98,8 @@ namespace GJ.Game
             _busy = false;
         }
 
-        // A punch or a round: knocked back a step, and down for good once it has had enough.
+        // A punch (no damage: it only rocks it back a step) or a round, which bleeds it and puts it down for good once
+        // it has had enough.
         public void Hit(int damage, Vector3 from)
         {
             if (Dead) return;
@@ -99,8 +107,10 @@ namespace GJ.Game
             Play(hitClip, 0.8f);
             Vector3 away = transform.position - from;
             away.y = 0f;
-            if (away.sqrMagnitude > 0.0001f) transform.position += away.normalized * 0.35f * damage;
+            if (away.sqrMagnitude > 0.0001f) transform.position += away.normalized * 0.35f * Mathf.Max(1, damage);
             _stagger = 0.45f;
+            if (damage > 0) Bleed(2 + damage * 2);
+            if (health > 0) Wounded?.Invoke(this);
             if (health <= 0)
             {
                 StopAllCoroutines();
@@ -125,6 +135,21 @@ namespace GJ.Game
             transform.position = start;
             Show(fallen);
             Died?.Invoke();
+        }
+
+        // Dark blood thrown onto the grass round its feet; it stays there.
+        void Bleed(int count)
+        {
+            if (bloodSplat == null) return;
+            for (int i = 0; i < count; i++)
+            {
+                var splat = Instantiate(bloodSplat, transform.parent);
+                Vector2 off = Random.insideUnitCircle * 0.9f;
+                splat.transform.position = new Vector3(transform.position.x + off.x, 0.012f + i * 0.001f, transform.position.z + off.y);
+                splat.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+                splat.transform.localScale = Vector3.one * Random.Range(0.5f, 1.3f);
+                splat.SetActive(true);
+            }
         }
 
         void Play(AudioClip clip, float volume)
