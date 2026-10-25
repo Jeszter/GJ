@@ -592,6 +592,12 @@ namespace GJ.PSX.EditorTools
                 Shade(new Color(0.16f, 0.17f, 0.2f), (Hash(x, 0, 160) - 0.5f) * 0.06f + (Hash(x, y, 161) - 0.5f) * 0.04f)), new Color(0.03f, 0.03f, 0.035f));
             Lit("GripWood", lit, MakeTexture("grip_wood", 16, (x, y) =>
                 (x + y) % 4 == 0 ? new Color(0.22f, 0.08f, 0.06f) : Shade(new Color(0.42f, 0.13f, 0.09f), (Hash(x, y, 162) - 0.5f) * 0.08f)), new Color(0.04f, 0.01f, 0.01f));
+            // The revolver in the hand: lighter steel and the skin's warm glow, so it reads in the dark as the fist does.
+            Lit("HeldGunmetal", lit, MakeTexture("held_gunmetal", 16, (x, y) =>
+                Shade(new Color(0.23f, 0.24f, 0.28f), (Hash(x, 0, 160) - 0.5f) * 0.08f + (Hash(x, y, 161) - 0.5f) * 0.05f)), new Color(0.09f, 0.075f, 0.06f));
+            Lit("HeldGripWood", lit, MakeTexture("held_grip_wood", 16, (x, y) =>
+                (x + y) % 4 == 0 ? new Color(0.22f, 0.08f, 0.06f) : Shade(new Color(0.42f, 0.13f, 0.09f), (Hash(x, y, 162) - 0.5f) * 0.08f)), new Color(0.12f, 0.045f, 0.03f));
+            Lit("HeldBrass", lit, Plain("held_brass", new Color(0.72f, 0.55f, 0.1f), 0.1f), new Color(0.1f, 0.08f, 0.03f));
             Lit("Sand", lit, MakeTexture("sand", 16, (x, y) =>
                 Shade(new Color(0.62f, 0.52f, 0.34f), (Hash(x, y, 163) - 0.5f) * 0.14f)), new Color(0.05f, 0.04f, 0.02f));
             Lit("Target", lit, MakeTexture("target", 32, (x, y) =>

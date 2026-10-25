@@ -93,9 +93,11 @@ namespace GJ.PSX.EditorTools
         // ---------------------------------------------------------------- the revolver
 
         // A revolver modelled at true size along +Z (barrel forward), grip down; the cylinder and hammer are separate
-        // so they can move. Used both in the hand and lying in the locker.
-        static (Transform cylinder, Transform hammer, Transform muzzle) RevolverModel(Transform parent)
+        // so they can move. Used both in the hand and lying about; in the hand ("held") it is drawn in lighter steel
+        // with the same warm glow as the skin holding it, or in a dark room it is a black hole in a lit fist.
+        static (Transform cylinder, Transform hammer, Transform muzzle) RevolverModel(Transform parent, bool held = false)
         {
+            string metal = held ? "HeldGunmetal" : "Gunmetal", wood = held ? "HeldGripWood" : "GripWood", brass = held ? "HeldBrass" : "Helmet";
             var steel = new MeshBuilder();
             steel.Tube(new Vector3(0, 0.046f, 0.022f), new Vector3(0, 0.046f, 0.17f), 0.0085f, 0.0085f, 8, Vector3.up, 8f);
             steel.Box(new Vector3(0, 0.057f, 0.095f), new Vector3(0.008f, 0.006f, 0.15f), 8f);           // rib
@@ -113,27 +115,27 @@ namespace GJ.PSX.EditorTools
                 prev = p;
             }
             steel.Box(new Vector3(0, 0.0f, -0.005f), new Vector3(0.004f, 0.02f, 0.004f), 8f);            // trigger
-            Place("Frame", steel, "Gunmetal", Vector3.zero, default, parent);
+            Place("Frame", steel, metal, Vector3.zero, default, parent);
             var grip = new MeshBuilder();
             grip.Limb(new Vector3(0, 0.022f, -0.035f), new Vector3(0, -0.055f, -0.062f), 0.024f, 0.034f, 0.026f, 0.04f, Vector3.forward, 8f);
-            Place("Grip", grip, "GripWood", Vector3.zero, default, parent);
+            Place("Grip", grip, wood, Vector3.zero, default, parent);
             var cyl = new GameObject("Cylinder").transform;
             cyl.SetParent(parent, false);
             cyl.localPosition = new Vector3(0, 0.044f, 0.004f);
             var drum = new MeshBuilder();
             drum.Tube(new Vector3(0, 0, -0.019f), new Vector3(0, 0, 0.019f), 0.019f, 0.019f, 6, Vector3.up, 8f);
-            Place("Drum", drum, "Gunmetal", Vector3.zero, default, cyl);
+            Place("Drum", drum, metal, Vector3.zero, default, cyl);
             var rims = new MeshBuilder();
             for (int i = 0; i < 6; i++)
             {
                 float a = (i + 0.5f) / 6f * Mathf.PI * 2f;
                 rims.Tube(new Vector3(Mathf.Cos(a) * 0.012f, Mathf.Sin(a) * 0.012f, -0.0205f), new Vector3(Mathf.Cos(a) * 0.012f, Mathf.Sin(a) * 0.012f, -0.0185f), 0.004f, 0.004f, 5, Vector3.up, 8f);
             }
-            Place("Rims", rims, "Helmet", Vector3.zero, default, cyl);
+            Place("Rims", rims, brass, Vector3.zero, default, cyl);
             var hammer = new GameObject("Hammer").transform;
             hammer.SetParent(parent, false);
             hammer.localPosition = new Vector3(0, 0.06f, -0.042f);
-            Block("Spur", "Gunmetal", new Vector3(0, 0.006f, -0.004f), new Vector3(0.006f, 0.016f, 0.01f), new Vector3(-20, 0, 0), 8f, hammer);
+            Block("Spur", metal, new Vector3(0, 0.006f, -0.004f), new Vector3(0.006f, 0.016f, 0.01f), new Vector3(-20, 0, 0), 8f, hammer);
             var muzzle = new GameObject("Muzzle").transform;
             muzzle.SetParent(parent, false);
             muzzle.localPosition = new Vector3(0, 0.046f, 0.175f);
@@ -146,21 +148,28 @@ namespace GJ.PSX.EditorTools
         {
             var root = new GameObject("Revolver").transform;
             root.SetParent(rig.head, false);
-            // Low in the right of the view and far enough out to read as a gun in a fist, the barrel turned in a
-            // touch toward the middle where the round goes.
+            // Low in the right of the view with the whole fist in frame, the barrel turned in a touch toward the
+            // middle where the round goes.
             root.localRotation = Quaternion.Euler(4f, -4f, 0f);
             var view = new GameObject("ViewModel").transform;
             view.SetParent(root, false);
-            view.localPosition = new Vector3(0.12f, -0.13f, 0.34f);
+            view.localPosition = new Vector3(0.14f, -0.11f, 0.36f);
             view.localRotation = Quaternion.identity;
             var gun = new GameObject("Gun").transform;
             gun.SetParent(view, false);
             gun.localRotation = Quaternion.Euler(2f, -5f, 0f);
             gun.localScale = Vector3.one * 1.2f;
-            var (cyl, hammer, muzzle) = RevolverModel(gun);
+            var (cyl, hammer, muzzle) = RevolverModel(gun, true);
 
-            // The right arm round the grip (see RevolverGrip); its index finger pulls the trigger.
+            // The right arm round the grip (see RevolverGrip); its index finger pulls the trigger. Then the whole hand
+            // turned 40 degrees about the gun's cross axis round the middle knuckle and dropped down the grip, so the
+            // knuckles follow the grip's rake back instead of fanning forward into the air in front of it, the fingers
+            // close round the front strap, and the forearm runs back along the line of the barrel.
             var arm = Arm(RevolverGrip, gun);
+            var knuckle = new Vector3(0.029f, 0.018f, -0.034f);
+            var rake = Quaternion.AngleAxis(40f, Vector3.right);
+            arm.root.localPosition = knuckle + rake * (arm.root.localPosition - knuckle) + new Vector3(0f, -0.024f, -0.008f);
+            arm.root.localRotation = rake * arm.root.localRotation;
 
             var flashMb = new MeshBuilder();
             flashMb.Cross(new Vector3(0, -0.03f, 0), 0.07f, 0.07f);
