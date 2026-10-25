@@ -36,7 +36,11 @@ namespace GJ.Game
         Vector3 _rest;
         float _raise, _kick, _pull, _head;
         Quaternion[] _triggerRest;
-        Text _ammo, _hint;
+        KeyLine _hint;
+        RectTransform _cylinder;
+        Image[] _chambers;
+        CanvasGroup _cylinderShow;
+        float _turn;
         Image _dot;
         bool _busy;
 
@@ -117,7 +121,7 @@ namespace GJ.Game
                                       + (HeadPose - _rest) * h + shake;
             viewModel.localRotation = Quaternion.Euler(-25f * _kick, 0f, 0f) * Quaternion.Euler(-35f * h, -55f * h, 25f * h);
             if (_raise <= 0f && !Drawn && viewModel.gameObject.activeSelf) viewModel.gameObject.SetActive(false);
-            _ammo.text = Owned && Drawn ? new string('|', rounds) + new string('.', Mathf.Max(0, 6 - rounds)) : "";
+            UpdateCylinder();
             // The round goes where the eye looks, not where the barrel seems to point: show where that is.
             _dot.enabled = Owned && Drawn && _raise > 0.95f && _head <= 0f;
             bool canTurn = Owned && Drawn && canAimAtSelf != null && canAimAtSelf();
@@ -191,6 +195,29 @@ namespace GJ.Game
             _busy = false;
         }
 
+        // The cylinder in the corner while the revolver is out; it turns a chamber on with every round spent.
+        void UpdateCylinder()
+        {
+            bool show = Owned && Drawn;
+            _cylinderShow.alpha = Mathf.MoveTowards(_cylinderShow.alpha, show ? 1f : 0f, Time.unscaledDeltaTime * 6f);
+            for (int i = 0; i < _chambers.Length; i++) _chambers[i].color = i < rounds ? UiStyle.Brass : UiStyle.Hollow;
+            float target = (6 - Mathf.Clamp(rounds, 0, 6)) * 60f;
+            _turn = Mathf.Lerp(_turn, target, 1f - Mathf.Exp(-12f * Time.unscaledDeltaTime));
+            _cylinder.localRotation = Quaternion.Euler(0f, 0f, -_turn);
+        }
+
+        Image CylinderPart(string name, Sprite sprite, Vector2 at, float diameter, Color color)
+        {
+            var img = new GameObject(name, typeof(RectTransform)).AddComponent<Image>();
+            img.transform.SetParent(_cylinder, false);
+            img.sprite = sprite;
+            img.color = color;
+            img.raycastTarget = false;
+            img.rectTransform.anchoredPosition = at;
+            img.rectTransform.sizeDelta = new Vector2(diameter, diameter);
+            return img;
+        }
+
         // Rounds left, drawn by the same low-res camera as everything else.
         void BuildHud()
         {
@@ -204,25 +231,26 @@ namespace GJ.Game
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(427, 240);
             scaler.matchWidthOrHeight = 1f;
-            _ammo = new GameObject("Rounds").AddComponent<Text>();
-            _ammo.transform.SetParent(canvasGo.transform, false);
-            _ammo.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            _ammo.fontSize = 14;
-            _ammo.alignment = TextAnchor.LowerRight;
-            _ammo.color = new Color(0.95f, 0.85f, 0.6f);
-            _ammo.raycastTarget = false;
-            var rt = _ammo.rectTransform;
-            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1f, 0f);
-            rt.anchoredPosition = new Vector2(-12f, 10f);
-            rt.sizeDelta = new Vector2(120f, 30f);
-            var shadow = _ammo.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0, 0, 0, 0.8f);
-            _hint = Object.Instantiate(_ammo, canvasGo.transform);
-            _hint.name = "Hint";
-            _hint.fontSize = 9;
-            _hint.text = "";
-            _hint.rectTransform.anchoredPosition = new Vector2(-12f, 30f);
-            _hint.rectTransform.sizeDelta = new Vector2(240f, 20f);
+            // The cylinder seen from behind: six chambers round a ring, brass where a round is left, dark where it's spent.
+            _cylinder = new GameObject("Cylinder", typeof(RectTransform)).GetComponent<RectTransform>();
+            _cylinder.SetParent(canvasGo.transform, false);
+            _cylinder.anchorMin = _cylinder.anchorMax = new Vector2(1f, 0f);
+            _cylinder.pivot = new Vector2(0.5f, 0.5f);
+            _cylinder.anchoredPosition = new Vector2(-24f, 22f);
+            _cylinder.sizeDelta = new Vector2(30f, 30f);
+            _cylinderShow = _cylinder.gameObject.AddComponent<CanvasGroup>();
+            var ring = CylinderPart("Ring", UiStyle.Ring, Vector2.zero, 30f, UiStyle.Dim);
+            ring.gameObject.AddComponent<Shadow>().effectColor = UiStyle.Shade;
+            _chambers = new Image[6];
+            for (int i = 0; i < 6; i++)
+            {
+                float a = (90f - i * 60f) * Mathf.Deg2Rad;
+                _chambers[i] = CylinderPart("Chamber", UiStyle.Disc, new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 9f, 8f, UiStyle.Brass);
+                var rim = _chambers[i].gameObject.AddComponent<Outline>();
+                rim.effectColor = UiStyle.Shade;
+                rim.effectDistance = new Vector2(0.7f, -0.7f);
+            }
+            _hint = KeyLine.Create(canvasGo.transform, "Hint", 9, TextAnchor.LowerRight, new Vector2(1f, 0f), new Vector2(-42f, 12f), KeyLine.Look.Light, 280f);
 
             // A two-pixel aiming dot in the middle of the screen, with a dark edge so it shows on a lit wall too.
             _dot = new GameObject("Aim").AddComponent<Image>();

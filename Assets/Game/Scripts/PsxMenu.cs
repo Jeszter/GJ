@@ -65,6 +65,7 @@ namespace GJ.Game
             text.transform.SetParent(_root, false);
             text.font = _font;
             text.fontSize = _fontSize;
+            text.fontStyle = FontStyle.Bold;
             text.alignment = TextAnchor.MiddleCenter;
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
             text.raycastTarget = false;

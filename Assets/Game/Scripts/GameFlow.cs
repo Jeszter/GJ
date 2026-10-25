@@ -66,7 +66,8 @@ namespace GJ.Game
         Font _font;
         AudioSource _ui;
         Image _black;
-        Text _title, _tagline, _story, _hint, _skip, _endText;
+        Text _title, _tagline, _story, _endText;
+        KeyLine _hint, _skip;
         RectTransform _artPanel;
         RawImage _art;
         Image[] _dots;
@@ -649,7 +650,7 @@ namespace GJ.Game
 
         void BuildUi()
         {
-            _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _font = UiStyle.Font;
             var cam = head.GetComponent<Camera>();
 
             _ui = gameObject.AddComponent<AudioSource>();
@@ -682,10 +683,11 @@ namespace GJ.Game
             BuildStoryPanel(root);
             _story = Label(root, "", 12, new Vector2(0, -50), new Color(0.9f, 0.86f, 0.78f));
             _story.lineSpacing = 1.1f;
-            _hint = Label(root, "", 9, new Vector2(140, -96), new Color(0.6f, 0.55f, 0.5f));
-            _skip = Label(root, Loc.T(SkipHint), 9, new Vector2(-140, -96), new Color(0.5f, 0.46f, 0.42f));
+            _hint = KeyLine.Create(root, "Hint", 9, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(140, -96), KeyLine.Look.Dim, 200f);
+            _skip = KeyLine.Create(root, "Skip", 9, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(-140, -96), KeyLine.Look.Dim, 200f);
+            _skip.text = Loc.T(SkipHint);
             _skip.gameObject.SetActive(false);
-            _endText = Label(root, "", 12, new Vector2(0, 40), new Color(0.92f, 0.88f, 0.8f));
+            _endText = Label(root, "", 11, new Vector2(0, 40), new Color(0.92f, 0.88f, 0.8f));
             _endText.gameObject.SetActive(false);
 
             _titleMenu = new PsxMenu(root, cam, _font, new Vector2(0, -45), 12, 17, _ui, moveClip, pickClip);
@@ -762,6 +764,7 @@ namespace GJ.Game
             t.transform.SetParent(parent, false);
             t.font = _font;
             t.fontSize = size;
+            t.fontStyle = FontStyle.Bold;
             t.text = text;
             t.color = color;
             t.alignment = TextAnchor.MiddleCenter;

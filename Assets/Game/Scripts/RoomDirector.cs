@@ -60,7 +60,9 @@ namespace GJ.Game
         float _nextBeat;
         float _nextAmbient = 4f;
 
-        Text _attempt, _prompt, _message, _noteText, _controls, _holdText, _airLabel;
+        Text _attempt, _noteText, _holdText, _airLabel;
+        KeyLine _prompt, _message, _controls;
+        int _ticks;
         Image _fade, _paper, _holdBar;
         Image[] _pips, _pipRings;
         Image _blood;
@@ -731,7 +733,7 @@ namespace GJ.Game
             scaler.referenceResolution = new Vector2(427, 240);
             scaler.matchWidthOrHeight = 1f;
 
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var font = UiStyle.Font;
 
             // Blood thrown across the view by a blow, fading with the hurt.
             _blood = new GameObject("Blood").AddComponent<Image>();
@@ -756,8 +758,7 @@ namespace GJ.Game
             _paper.rectTransform.sizeDelta = new Vector2(230, 170);
             _paper.rectTransform.localRotation = Quaternion.Euler(0, 0, 1.5f);
             _noteText = MakeText(_paper.transform, font, 11, TextAnchor.MiddleLeft, new Vector2(0.5f, 0.5f), Vector2.zero);
-            _noteText.color = new Color(0.1f, 0.11f, 0.22f);
-            _noteText.fontStyle = FontStyle.Italic;
+            _noteText.color = UiStyle.Ink;
             Destroy(_noteText.GetComponent<Shadow>());
             _noteText.rectTransform.sizeDelta = new Vector2(200, 150);
             _noteText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -791,11 +792,18 @@ namespace GJ.Game
 
             _attempt = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(11, -24));
             _attempt.color = new Color(0.7f, 0.65f, 0.58f, 0.85f);
-            _controls = MakeText(canvasGo.transform, font, 9, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(-10, -8));
+            // Controls in the corner on typewriter keys; what you can do right now typed on a strip of paper; the big
+            // lines in the middle typed out a letter at a time, with the machine's click.
+            _controls = KeyLine.Create(canvasGo.transform, "Controls", 9, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(-8, -6), KeyLine.Look.Dim, 300f);
+            _controls.lineSpacing = 1.6f;
             _controls.text = Loc.T("[E] use   [F] lighter   [R] restart\n" + LetGoHint);
-            _controls.lineSpacing = 1.2f;
-            _prompt = MakeText(canvasGo.transform, font, 11, TextAnchor.LowerCenter, new Vector2(0.5f, 0), new Vector2(0, 18));
-            _message = MakeText(canvasGo.transform, font, 14, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero);
+            _prompt = KeyLine.Create(canvasGo.transform, "Prompt", 11, TextAnchor.LowerCenter, new Vector2(0.5f, 0), new Vector2(0, 14), KeyLine.Look.Paper, 360f);
+            _message = KeyLine.Create(canvasGo.transform, "Message", 14, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero, KeyLine.Look.Light, 390f);
+            _message.typeSpeed = 45f;
+            _message.Typed = () =>
+            {
+                if (flow != null && flow.typeClip != null && _heart != null && (++_ticks & 1) == 0) _heart.PlayOneShot(flow.typeClip, 0.18f);
+            };
 
             // Letting go: a short bar over the prompt fills while Space is held.
             var white = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 100f);
@@ -966,8 +974,9 @@ namespace GJ.Game
             text.transform.SetParent(parent, false);
             text.font = font;
             text.fontSize = size;
+            text.fontStyle = FontStyle.Bold;
             text.alignment = anchor;
-            text.color = new Color(0.95f, 0.9f, 0.8f);
+            text.color = UiStyle.Type;
             text.raycastTarget = false;
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
             text.verticalOverflow = VerticalWrapMode.Overflow;

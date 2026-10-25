@@ -10,8 +10,8 @@ namespace GJ.Game
     // round a line), so a message put together from known lines still comes out translated.
     public static partial class Loc
     {
-        public static readonly string[] Codes = { "en", "ru", "uk", "pt" };
-        public static readonly string[] Names = { "ENGLISH", "РУССКИЙ", "УКРАЇНСЬКА", "PORTUGUÊS (BR)" };
+        public static readonly string[] Codes = { "en", "ru", "uk", "pt", "sk" };
+        public static readonly string[] Names = { "ENGLISH", "РУССКИЙ", "УКРАЇНСЬКА", "PORTUGUÊS (BR)", "SLOVENČINA" };
 
         public static int Current { get; private set; }
         public static event System.Action Changed;
@@ -39,6 +39,7 @@ namespace GJ.Game
                 case SystemLanguage.Russian: return 1;
                 case SystemLanguage.Ukrainian: return 2;
                 case SystemLanguage.Portuguese: return 3;
+                case SystemLanguage.Slovak: return 4;
                 default: return 0;
             }
         }
